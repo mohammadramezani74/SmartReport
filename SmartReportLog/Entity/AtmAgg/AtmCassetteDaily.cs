@@ -4,7 +4,9 @@ namespace SmartReportLog.Entity.AtmAgg
 {
     public sealed class AtmCassetteDaily : Entity<Guid>
     {
+
         public Guid DailyAnalysisId { get; private set; }
+
 
         public int CassetteNumber { get; private set; }
 

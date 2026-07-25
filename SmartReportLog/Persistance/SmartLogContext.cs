@@ -20,6 +20,7 @@ namespace SmartReportLog.Persistance
         public DbSet<AtmHardwareErrorDaily> DailyHardwareErrors => Set<AtmHardwareErrorDaily>();
         public DbSet<AtmTodayError> AtmTodayErrors => Set<AtmTodayError>();
         public DbSet<JsonDocuments> jsonDocuments => Set<JsonDocuments>();
+        public DbSet<AtmTicketInfo> AtmTicketInfos => Set<AtmTicketInfo>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(SmartLogContext).Assembly);

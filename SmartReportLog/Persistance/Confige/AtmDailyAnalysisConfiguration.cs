@@ -20,6 +20,11 @@ namespace SmartReportLog.Persistance.Confige
             }).IsUnique();
 
             builder.Property(x => x.AuiSeconds);
+            builder.Property(x => x.TicketNumber)
+                 .HasMaxLength(50);
+
+            builder.Property(x => x.PersonnelCode)
+                .HasMaxLength(50);
 
             builder.HasMany(x => x.Cassettes)
                 .WithOne()
@@ -33,6 +38,11 @@ namespace SmartReportLog.Persistance.Confige
             builder.HasMany(x => x.TodayErrors)
     .WithOne()
     .HasForeignKey(x => x.DailyAnalysisId)
+    .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(x => x.TicketInfo)
+    .WithOne()
+    .HasForeignKey<AtmTicketInfo>(x => x.DailyAnalysisId)
     .OnDelete(DeleteBehavior.Cascade);
         }
     }

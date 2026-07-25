@@ -3,6 +3,7 @@ using SmartReportLog.Components;
 using SmartReportLog.Persistance;
 using SmartReportLog.Services.atm.Command.SaveData;
 using SmartReportLog.Services.atm.Query;
+using SmartReportLog.Services.Ticket;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,11 @@ builder.Services.AddDbContext<SmartLogContext>(x =>
 {
     x.UseSqlServer(builder.Configuration.GetConnectionString("ApplicationDbContext")).EnableSensitiveDataLogging().LogTo(Console.WriteLine, LogLevel.Information); ;
 });
+builder.Services.AddDbContext<ErDbContext>(x =>
+    x.UseSqlServer(builder.Configuration.GetConnectionString("ErDbConnection"),
+        sql => sql.EnableRetryOnFailure(3, TimeSpan.FromSeconds(2), null)));
+
+builder.Services.AddScoped<ITicketInfoProvider, SqlTicketInfoProvider>();
 builder.Services.AddScoped<IAtmIngestionService,AtmIngestionService>();
 builder.Services.AddScoped<IAtmQueryService, AtmQueryService>();
 var app = builder.Build();

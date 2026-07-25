@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartReportLog.Persistance;
 
@@ -11,9 +12,11 @@ using SmartReportLog.Persistance;
 namespace SmartReportLog.Migrations
 {
     [DbContext(typeof(SmartLogContext))]
-    partial class SmartLogContextModelSnapshot : ModelSnapshot
+    [Migration("20260725092428_addTicketNoToTableDailyAnalysis")]
+    partial class addTicketNoToTableDailyAnalysis
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,36 +31,12 @@ namespace SmartReportLog.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("BranchCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("BranchName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("CityName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("CpuModel")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
                     b.Property<DateTime?>("CreateDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("CustomerName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("DeviceName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("MInvCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime>("ModifiedDate")
                         .HasColumnType("datetime2");
@@ -71,25 +50,10 @@ namespace SmartReportLog.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int?>("StateCode")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StateName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("SupervisionStateName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("BranchCode");
 
                     b.HasIndex("SerialNumber")
                         .IsUnique();
-
-                    b.HasIndex("StateCode");
 
                     b.ToTable("Atms");
                 });
@@ -253,57 +217,6 @@ namespace SmartReportLog.Migrations
                     b.ToTable("DailyHardwareErrors");
                 });
 
-            modelBuilder.Entity("SmartReportLog.Entity.AtmAgg.AtmTicketInfo", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AssignType")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("CallDate")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<DateTime?>("CreateDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("DailyAnalysisId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("FetchedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("ModifiedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ReferDate")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<string>("ReferEndTime")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<int>("RequestNo")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TechName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DailyAnalysisId")
-                        .IsUnique();
-
-                    b.HasIndex("RequestNo");
-
-                    b.ToTable("AtmTicketInfos");
-                });
-
             modelBuilder.Entity("SmartReportLog.Entity.AtmAgg.AtmTodayError", b =>
                 {
                     b.Property<Guid>("Id")
@@ -400,15 +313,6 @@ namespace SmartReportLog.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SmartReportLog.Entity.AtmAgg.AtmTicketInfo", b =>
-                {
-                    b.HasOne("SmartReportLog.Entity.AtmAgg.AtmDailyAnalysis", null)
-                        .WithOne("TicketInfo")
-                        .HasForeignKey("SmartReportLog.Entity.AtmAgg.AtmTicketInfo", "DailyAnalysisId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("SmartReportLog.Entity.AtmAgg.AtmTodayError", b =>
                 {
                     b.HasOne("SmartReportLog.Entity.AtmAgg.AtmDailyAnalysis", null)
@@ -428,8 +332,6 @@ namespace SmartReportLog.Migrations
                     b.Navigation("Cassettes");
 
                     b.Navigation("HardwareErrors");
-
-                    b.Navigation("TicketInfo");
 
                     b.Navigation("TodayErrors");
                 });

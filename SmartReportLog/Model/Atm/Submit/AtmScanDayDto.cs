@@ -2,6 +2,9 @@
 {
     public sealed class AtmScanDayDto
     {
+ 
+        public string Tk { get; set; }         //TicketNumber
+        public string Pc { get; set; }         //personnelCode
         public string S { get; set; } = default!;      // SerialNumber
         public string Dt { get; set; } = default!;      // Date (yyyy-MM-dd)
         public int Ca { get; set; }                      // TotalCards

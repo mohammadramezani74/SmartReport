@@ -6,6 +6,8 @@ namespace SmartReportLog.Entity.AtmAgg
     public sealed class AtmDailyAnalysis : Entity<Guid>
     {
         public Guid AtmId { get;  set; }
+        public string? TicketNumber { get; set; }
+        public string? PersonnelCode { get; set; }
 
         public DateOnly Date { get;  set; }
         public DateOnly EndDate { get; set; }
@@ -22,7 +24,7 @@ namespace SmartReportLog.Entity.AtmAgg
 
         public int DailyRejectTotal { get;  set; }
 
-
+        public AtmTicketInfo? TicketInfo { get; set; }
         public ICollection<AtmCassetteDaily> Cassettes { get;  set; } = new List<AtmCassetteDaily>();
 
         public ICollection<AtmHardwareErrorDaily> HardwareErrors { get;  set; }=new List<AtmHardwareErrorDaily>();
@@ -43,7 +45,8 @@ namespace SmartReportLog.Entity.AtmAgg
             IEnumerable<(string Device, string ErrorCode, int Count)> errors,
               IEnumerable<(string Device, string ErrorCode, int Count, DateOnly Date)> todayErrors,
              int cpuUsagePercent, int ramTotalGb, int ramUsedGb, int? cpuTemperatureC,
-        int diskTotalGb, int diskUsedGb, string?ver
+        int diskTotalGb, int diskUsedGb, string?ver,
+    string? ticketNumber, string? personnelCode
             )
         {
             var analysis = new AtmDailyAnalysis
@@ -55,7 +58,8 @@ namespace SmartReportLog.Entity.AtmAgg
                CreateDate=DateTime.Now,
             };
             analysis.Update(totalCards, totalTransactions, receiptCount, auiSeconds,
-                dispenseTotal, rejectTotal, cassettes, errors, todayErrors, cpuUsagePercent, ramTotalGb, ramUsedGb, cpuTemperatureC, diskTotalGb, diskUsedGb,ver);
+                dispenseTotal, rejectTotal, cassettes, errors, todayErrors, cpuUsagePercent,
+                ramTotalGb, ramUsedGb, cpuTemperatureC, diskTotalGb, diskUsedGb,ver, ticketNumber, personnelCode);
             return analysis;
         }
 
@@ -65,7 +69,8 @@ namespace SmartReportLog.Entity.AtmAgg
             IEnumerable<(string Device, string ErrorCode, int Count)> errors,
             IEnumerable<(string Device, string ErrorCode, int Count, DateOnly Date)> todayErrors,
              int cpuUsagePercent, int ramTotalGb, int ramUsedGb, int? cpuTemperatureC,
-        int diskTotalGb, int diskUsedGb,string? ver)
+        int diskTotalGb, int diskUsedGb,string? ver,
+    string? ticketNumber, string? personnelCode)
         {
             TotalCards = totalCards;
             TotalTransactions = totalTransactions;
@@ -81,6 +86,8 @@ namespace SmartReportLog.Entity.AtmAgg
             DiskTotalGb = diskTotalGb;
             DiskUsedGb = diskUsedGb;
             GayaVersion = ver;
+            TicketNumber = ticketNumber;
+            PersonnelCode = personnelCode;
 
             foreach (var c in cassettes)
                 Cassettes.Add(AtmCassetteDaily.Create(Id, c.Id, c.Denomination, c.Pickup, c.Dispense, c.Reject, c.LastKnown));

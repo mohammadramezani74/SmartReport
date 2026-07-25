@@ -28,6 +28,17 @@ namespace SmartReportLog.Persistance.Confige
             builder.HasMany(x => x.DailyAnalyses)
                 .WithOne()
                 .HasForeignKey(x => x.AtmId);
+            builder.Property(x => x.MInvCode).HasMaxLength(50);
+            builder.Property(x => x.DeviceName).HasMaxLength(200);
+            builder.Property(x => x.StateName).HasMaxLength(100);
+            builder.Property(x => x.CityName).HasMaxLength(100);
+            builder.Property(x => x.SupervisionStateName).HasMaxLength(100);
+            builder.Property(x => x.CustomerName).HasMaxLength(200);
+            builder.Property(x => x.BranchCode).HasMaxLength(50);
+            builder.Property(x => x.BranchName).HasMaxLength(200);
+
+            builder.HasIndex(x => x.StateCode);
+            builder.HasIndex(x => x.BranchCode);
 
 
         }
