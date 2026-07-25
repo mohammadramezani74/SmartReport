@@ -1,0 +1,307 @@
+﻿using Microsoft.EntityFrameworkCore;
+using SmartReportLog.Entity.AtmAgg;
+using SmartReportLog.Model.Atm.Queries;
+using SmartReportLog.Persistance;
+using SmartReportLog.Utilities.DateTimeHalper;
+
+namespace SmartReportLog.Services.atm.Query
+{
+    public sealed class AtmQueryService : IAtmQueryService
+    {
+        private readonly SmartLogContext _context;
+
+        public AtmQueryService(SmartLogContext context) => _context = context;
+
+        public async Task<(List<AtmListItemDto> Items, int TotalCount)> GetAtmListAsync(string? search, int page, int pageSize, CancellationToken ct)
+        {
+            var query = _context.Atms.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(a => a.SerialNumber!.Contains(search));
+
+
+            int totalCount = await query.CountAsync(ct);
+
+
+            var items = await query
+                .Select(a => new
+                {
+                    a.Id,
+                    a.SerialNumber,
+                    LastReportEnd = a.DailyAnalyses
+                        .OrderByDescending(p => p.EndDate)
+                        .Select(p => (DateOnly?)p.EndDate)
+                        .FirstOrDefault(),
+                    TotalReportsCount = a.DailyAnalyses.Count()
+                })
+                .OrderByDescending(x => x.LastReportEnd)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(x => new AtmListItemDto(x.Id, x.SerialNumber!, x.LastReportEnd, x.TotalReportsCount))
+                .ToListAsync(ct);
+
+            return (items, totalCount);
+        }
+        public async Task<AtmDetailDto?> GetAtmDetailAsync(Guid atmId, DateOnly? from, DateOnly? to, CancellationToken ct)
+        {
+            var atm = await _context.Atms
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(a => a.DailyAnalyses).ThenInclude(p => p.Cassettes)
+            .Include(a => a.DailyAnalyses).ThenInclude(p => p.HardwareErrors)
+            .Include(a => a.DailyAnalyses).ThenInclude(p => p.TodayErrors)
+            .FirstOrDefaultAsync(a => a.Id == atmId, ct);
+
+            if (atm is null) return null;
+
+            var periods = atm.DailyAnalyses.AsEnumerable();
+            if (from.HasValue) periods = periods.Where(p => p.EndDate >= from.Value);
+            if (to.HasValue) periods = periods.Where(p => p.Date <= to.Value);
+
+            var orderedPeriods = periods.OrderBy(p => p.EndDate).ToList();
+            var latest = orderedPeriods.LastOrDefault();
+
+            var points = orderedPeriods.Select(p => new AtmPeriodPointDto(
+                p.Date, p.EndDate, p.TotalCards, p.TotalTransactions, p.ReceiptCount,
+                (int)p.DailyDispenseTotal, (int)p.DailyRejectTotal, p.CpuTemperatureC)).ToList();
+
+            var errors = latest?.HardwareErrors
+          .GroupBy(x => new
+          {
+              x.Device,
+              x.ErrorCode
+          })
+          .Select(g => new AtmErrorSummaryDto(
+              g.Key.Device,
+              g.Key.ErrorCode,
+              g.Sum(x => x.Count)))
+          .OrderByDescending(x => x.Count)
+          .ToList() ?? new();
+
+            var cassettes = latest?.Cassettes
+                .GroupBy(x => new
+                {
+                    x.CassetteNumber,
+                    x.Denomination
+                })
+                .Select(g =>
+                {
+                    var c = g.First();
+
+                    return new AtmCassetteSummaryDto(
+                        c.CassetteNumber,
+                        c.Denomination,
+                        g.Sum(x => x.TotalPickup),
+                        g.Sum(x => x.TotalDispense),
+                        g.Sum(x => x.TotalReject));
+                })
+                .OrderBy(x => x.CassetteIndex)
+                .ToList() ?? new();
+
+            // خطاهای روزانه در کل بازه‌ی فیلترشده (نه فقط آخرین گزارش)
+            var todayErrors = orderedPeriods
+                .SelectMany(p => p.TodayErrors)
+                .Select(e => new AtmTodayErrorDto(e.Device, e.ErrorCode, e.Count, e.Date))
+                .OrderByDescending(e => e.Date)
+                .ThenByDescending(e => e.Count)
+                .ToList();
+
+            return new AtmDetailDto(
+                atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
+                points, errors, cassettes, todayErrors,
+                latest?.CpuUsagePercent ?? 0, latest?.RamTotalGb ?? 0, latest?.RamUsedGb ?? 0, latest?.CpuTemperatureC,
+                latest?.DiskTotalGb ?? 0, latest?.DiskUsedGb ?? 0, latest?.GayaVersion ?? "-");
+        }
+
+        public async Task<(List<AtmPeriodListItemDto> Items, int TotalCount)> GetAtmPeriodsAsync(
+         Guid atmId, int page, int pageSize, CancellationToken ct)
+        {
+            var query = _context.Set<AtmDailyAnalysis>()
+                .AsNoTracking()
+                .Where(p => p.AtmId == atmId);
+
+            int totalCount = await query.CountAsync(ct);
+
+            var items = await query
+                .OrderByDescending(p => p.EndDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new AtmPeriodListItemDto(
+                    p.Id,DateTime.Parse( p.Date.ToString()).ToFarsi(), DateTime.Parse(p.EndDate.ToString()).ToFarsi(),
+                    p.TotalTransactions, p.TotalCards, p.ReceiptCount,
+                    p.HardwareErrors.Sum(e => (int?)e.Count) ?? 0))
+                .ToListAsync(ct);
+
+            return (items, totalCount);
+        }
+        public async Task<AtmDetailDto?> GetAtmPeriodDetailAsync(Guid atmId, Guid periodId, CancellationToken ct)
+        {
+            var atm = await _context.Atms
+                .AsNoTracking()
+                .Where(a => a.Id == atmId)
+                .Select(a => new { a.Id, a.SerialNumber, a.CpuModel, a.OsVersion })
+                .FirstOrDefaultAsync(ct);
+            if (atm is null) return null;
+
+            var latest = await _context.Set<AtmDailyAnalysis>()
+                .AsNoTracking()
+                .Include(p => p.Cassettes)
+                .Include(p => p.HardwareErrors)
+                .Include(p => p.TodayErrors)
+                .FirstOrDefaultAsync(p => p.Id == periodId && p.AtmId == atmId, ct);
+            if (latest is null) return null;
+
+            var points = new AtmPeriodPointDto(
+             latest.Date, latest.EndDate, latest.TotalCards, latest.TotalTransactions, latest.ReceiptCount,
+             (int)latest.DailyDispenseTotal, (int)latest.DailyRejectTotal,latest.CpuTemperatureC);
+
+            var errors = latest?.HardwareErrors
+          .GroupBy(x => new
+          {
+              x.Device,
+              x.ErrorCode
+          })
+          .Select(g => new AtmErrorSummaryDto(
+              g.Key.Device,
+              g.Key.ErrorCode,
+              g.Sum(x => x.Count)))
+          .OrderByDescending(x => x.Count)
+          .ToList() ?? new();
+
+            var cassettes = latest?.Cassettes
+                .GroupBy(x => new
+                {
+                    x.CassetteNumber,
+                    x.Denomination
+                })
+                .Select(g =>
+                {
+                    var c = g.First();
+
+                    return new AtmCassetteSummaryDto(
+                        c.CassetteNumber,
+                        c.Denomination,
+                        g.Sum(x => x.TotalPickup),
+                        g.Sum(x => x.TotalDispense),
+                        g.Sum(x => x.TotalReject));
+                })
+                .OrderBy(x => x.CassetteIndex)
+                .ToList() ?? new();
+
+
+            var todayErrors = latest.TodayErrors
+                .Select(e => new AtmTodayErrorDto(e.Device, e.ErrorCode, e.Count, e.Date))
+                .OrderByDescending(e => e.Date)
+                .ThenByDescending(e => e.Count)
+                .ToList();
+
+            return new AtmDetailDto(
+                atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
+                [points], errors, cassettes, todayErrors,
+                latest.CpuUsagePercent, latest.RamTotalGb, latest.RamUsedGb, latest.CpuTemperatureC,
+                latest.DiskTotalGb, latest.DiskUsedGb, latest.GayaVersion ?? "-");
+        }
+
+        public async Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors(CancellationToken ct)
+        {
+            return await _context.Atms
+       .AsNoTracking()
+       .Select(a => new AtmErrorCountDto
+       {
+           AtmId = a.Id,
+           SerialNumber = a.SerialNumber!,
+           ErrorCount = a.DailyAnalyses
+               .SelectMany(p => p.HardwareErrors)
+               .Sum(e => (int?)e.Count) ?? 0
+       })
+       .Where(x => x.ErrorCount > 0)
+       .OrderByDescending(x => x.ErrorCount)
+       .Take(10)
+       .ToListAsync(ct);
+        }
+
+        public async Task<AtmDashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken)
+        {
+            // تبدیل تاریخ امروز سیستم به DateOnly
+            var today =DateTime.Today.AddDays(-7);
+
+            // ۱. کل دستگاه‌های ثبت شده در سیستم
+            var totalAtms = await _context.Atms.CountAsync(cancellationToken);
+
+            // ۲. تعداد دستگاه‌های فعال امروز (دستگاه‌هایی که برای امروز تحلیل روزانه دارند)
+            var activeAtms = await _context.DailyAnalyses
+                .Where(x => x.CreateDate >= today)
+                .Select(x => x.AtmId)
+                .Distinct()
+                .CountAsync(cancellationToken);
+
+            // ۳. مجموع تراکنش‌ها و خطاهای سخت‌افزاری امروز شبکه
+            var todayStats = await _context.DailyAnalyses
+                .Where(x => x.CreateDate >= today)
+                .Select(x => new
+                {
+                    Transactions = x.TotalTransactions,
+                    // جمع زدن کل خطاهای سخت‌افزاری امروز این دستگاه
+                    Errors = x.HardwareErrors.Sum(e => e.Count)
+                })
+                .ToListAsync(cancellationToken);
+
+            var todayTotalTransactions = todayStats.Sum(x => x.Transactions);
+            var todayTotalErrors = todayStats.Sum(x => x.Errors);
+
+            return new AtmDashboardSummaryDto(
+                TotalAtmsCount: totalAtms,
+                ActiveAtmsCount: activeAtms,
+                TodayTotalReportsCount: todayTotalTransactions, // استفاده از مجموع تراکنش‌ها به عنوان ترافیک زنده
+                TodayTotalErrorsCount: todayTotalErrors
+            );
+        }
+
+        public async Task<List<AtmErrorTypeDistributionDto>> GetErrorTypeDistributionAsync(CancellationToken cancellationToken)
+        {
+            var sevenDaysAgo = DateTime.Today.AddDays(-7);
+
+            // گروه‌بندی خطاها بر اساس ستون Device در یک هفته اخیر
+            var errorData = await _context.DailyHardwareErrors
+                .Where(x => _context.DailyAnalyses.Any(da => da.CreateDate.Value.Date>= sevenDaysAgo))
+                .GroupBy(x => x.Device)
+                .Select(g => new
+                {
+                    DeviceCode = g.Key,
+                    TotalCount = g.Sum(x => x.Count)
+                })
+                .OrderByDescending(x => x.TotalCount)
+                .ToListAsync(cancellationToken);
+
+            // نگاشت کدهای مخفف دیتابیس به عناوین فارسی و خوانا
+            var result = errorData.Select(x =>
+            {
+                var (persianName, color) = MapDeviceToPersianAndColor(x.DeviceCode);
+                return new AtmErrorTypeDistributionDto(
+                    ErrorCategory: persianName,
+                    Count: x.TotalCount,
+                    ColorHex: color
+                );
+            }).ToList();
+
+            return result;
+        }
+
+        private (string PersianName, string ColorHex) MapDeviceToPersianAndColor(string deviceName)
+        {
+            if (string.IsNullOrEmpty(deviceName))
+                return ("خطای نامشخص", "#64748b");
+
+            return deviceName.Trim().ToUpper() switch
+            {
+                "HOST" => ("ارتباط با مرکز (Network/Host)", "#ef4444"),       // قرمز برای قطعی مرکز و تایم‌اوت
+                "RPR" => ("پرینتر رسید (Receipt Printer)", "#10b981"),      // سبز برای خطاهای رسید مشتری
+                "CDM" or "DISPENSER" => ("بخش اسکناس‌شمار (Dispenser)", "#f59e0b"), // نارنجی
+                "IDC" or "CARDREADER" => ("کارت‌خوان (Card Reader)", "#3b82f6"),  // آبی
+                "PIN" or "EPP" => ("صفحه کلید امن (Pinpad)", "#8b5cf6"),        // بنفش
+                "SIU" => ("سنسورها و ماژول باینری (SIU)", "#ec4899"),       // صورتی
+                _ => ($"سخت‌افزار ({deviceName})", "#64748b")             // خاکستری برای بقیه موارد پیش‌بینی نشده
+            };
+        }
+    }
+}

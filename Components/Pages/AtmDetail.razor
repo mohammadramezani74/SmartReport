@@ -1,0 +1,391 @@
+﻿@page "/atms/{AtmId:guid}"
+@using SmartReportLog.Model.Atm.Queries
+@using SmartReportLog.Services.atm.Query
+@using SmartReportLog.Utilities.DateTimeHalper
+@inject IAtmQueryService QueryService
+@inject IJSRuntime JS
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+<PageTitle>جزئیات دستگاه</PageTitle>
+
+@if (_detail is null)
+{
+    <div class="skeleton-detail"></div>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <a href="/atms" class="back-link"><i class="ti ti-arrow-right"></i> بازگشت به لیست</a>
+            <h1 class="serial-title">@_detail.SerialNumber</h1>
+        </div>
+    </div>
+
+    <div class="detail-layout">
+        <aside class="periods-panel">
+            <div class="panel-title">گزارش‌های ثبت‌شده</div>
+
+            @if (_loadingList)
+            {
+                <div class="period-skeleton"></div>
+                <div class="period-skeleton"></div>
+                <div class="period-skeleton"></div>
+            }
+            else if (_periods.Count == 0)
+            {
+                <p class="no-data">گزارشی یافت نشد.</p>
+            }
+            else
+            {
+                <div class="period-list">
+                    @foreach (var p in _periods)
+                    {
+                        <div class="period-item @(p.Id == _selectedPeriodId ? "active" : "")"
+                             @onclick="() => SelectPeriod(p.Id)">
+                            <div class="period-item-top">
+                                <span class="period-date">@p.StartDate.ToString() - @p.EndDate.ToString()</span>
+                                @if (p.ErrorsCount > 0)
+                                {
+                                    <span class="period-error-badge">@p.ErrorsCount خطا</span>
+                                }
+                            </div>
+                            <div class="period-item-stats">
+                                <span><i class="ti ti-credit-card"></i> @p.TotalTransactions</span>
+                                <span><i class="ti ti-id"></i> @p.TotalCards</span>
+                                <span><i class="ti ti-receipt"></i> @p.ReceiptCount</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="pagination">
+                    <button disabled="@(_page <= 1)" @onclick="() => GoToPage(_page - 1)"><i class="ti ti-chevron-right"></i></button>
+                    <span class="page-info">@_page از @TotalPages</span>
+                    <button disabled="@(_page >= TotalPages)" @onclick="() => GoToPage(_page + 1)"><i class="ti ti-chevron-left"></i></button>
+                </div>
+            }
+        </aside>
+
+        <div class="detail-main">
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="ti ti-credit-card"></i></div>
+                    <div>
+                        <div class="stat-value">@(_detail.Periods.LastOrDefault()?.TotalTransactions ?? 0)</div>
+                        <div class="stat-label">تراکنش‌ها</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="ti ti-id"></i></div>
+                    <div>
+                        <div class="stat-value">@(_detail.Periods.LastOrDefault()?.TotalCards ?? 0)</div>
+                        <div class="stat-label">کارت‌ها</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon teal"><i class="ti ti-receipt"></i></div>
+                    <div>
+                        <div class="stat-value">@(_detail.Periods.LastOrDefault()?.ReceiptCount ?? 0)</div>
+                        <div class="stat-label">رسیدها</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red"><i class="ti ti-bug"></i></div>
+                    <div>
+                        <div class="stat-value">@_detail.ErrorsAggregated.Sum(e => e.Count)</div>
+                        <div class="stat-label">خطاهای سخت‌افزاری</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red"><i class="ti ti-alert-triangle"></i></div>
+                    <div>
+                        <div >@_detail.gayaversion</div>
+                        <div class="stat-label">ورژن گایا</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="ti ti-brand-windows"></i></div>
+                    <div>
+                        <div >@(_detail!.OsVersion ?? "—")</div>
+                        <div class="stat-label">ویندوز</div>
+                    </div>
+                </div>
+            </div>
+          
+        
+
+            <div class="resource-grid">
+                <div class="resource-card">
+                    <div class="chart-title">مصرف CPU</div>
+                    <div class="resource-body">
+                        <div class="gauge-wrap">
+                            <canvas id="cpuGauge"></canvas>
+                            <div class="gauge-value" id="cpuGaugeValue">—</div>
+                        </div>
+                        <table class="mini-table">
+                            <tbody>
+                                <tr><td>وضعیت</td><td class="mini-value @CpuStatusClass">@CpuStatusText</td></tr>
+                                <tr><td>مدل</td><td class="mini-value ltr-cell">@(_detail!.CpuModel ?? "—")</td></tr>
+                                <tr><td>دما</td><td class="mini-value">@(_detail.CpuTemperatureC.HasValue ? $"{_detail.CpuTemperatureC}°C" : "نامشخص")</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="resource-card">
+                    <div class="chart-title">مصرف RAM</div>
+                    <div class="resource-body">
+                        <div class="gauge-wrap">
+                            <canvas id="ramGauge"></canvas>
+                            <div class="gauge-value" id="ramGaugeValue">—</div>
+                        </div>
+                        <table class="mini-table">
+                            <tbody>
+                                <tr><td>وضعیت</td><td class="mini-value @RamStatusClass">@RamStatusText</td></tr>
+                                <tr><td>کل حافظه</td><td class="mini-value">@_detail.RamTotalGb GB</td></tr>
+                                <tr><td>استفاده‌شده</td><td class="mini-value">@_detail.RamUsedGb GB</td></tr>
+                                <tr><td>آزاد</td><td class="mini-value">@(_detail.RamTotalGb - _detail.RamUsedGb) GB</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="resource-card">
+                    <div class="chart-title">مصرف دیسک</div>
+                    <div class="resource-body">
+                        <div class="gauge-wrap">
+                            <canvas id="diskGauge"></canvas>
+                            <div class="gauge-value" id="diskGaugeValue">—</div>
+                        </div>
+                        <table class="mini-table">
+                            <tbody>
+                                <tr><td>وضعیت</td><td class="mini-value @DiskStatusClass">@DiskStatusText</td></tr>
+                                <tr><td>ظرفیت کل</td><td class="mini-value">@_detail.DiskTotalGb GB</td></tr>
+                                <tr><td>استفاده‌شده</td><td class="mini-value">@_detail.DiskUsedGb GB</td></tr>
+                                <tr><td>آزاد</td><td class="mini-value">@(_detail.DiskTotalGb - _detail.DiskUsedGb) GB</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="chart-title">جزئیات کاست‌ها</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>کاست</th>
+                            <th>مبلغ اسکناس</th>
+                            <th>رد شده</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _detail.CassettesLatest)
+                        {
+                            <tr>
+                                <td>کاست @c.CassetteIndex</td>
+                                <td class="ltr-cell">@c.Denomination.ToString("N0") ریال</td>
+  
+                                <td class="@(c.TotalReject > 0 ? "cell-danger" : "")">@c.TotalReject</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-card">
+                <div class="chart-title">جزئیات خطاهای سخت‌افزاری</div>
+                @if (_detail.ErrorsAggregated.Count == 0)
+                {
+                    <p class="no-data">در این بازه خطایی ثبت نشده است.</p>
+                }
+                else
+                {
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>دستگاه</th>
+                                <th>کد خطا</th>
+                                <th>تعداد</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in _detail.ErrorsAggregated)
+                            {
+                                <tr>
+                                    <td>@e.Device</td>
+                                    <td class="ltr-cell">@e.ErrorCode</td>
+                                    <td class="@(e.Count > 5 ? "cell-danger" : "")">@e.Count</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+            <div class="table-card">
+                <div class="chart-title">خطاهای روزانه</div>
+                @if (_detail.TodayErrors.Count == 0)
+                {
+                    <p class="no-data">در این بازه خطای روزانه‌ای ثبت نشده است.</p>
+                }
+                else
+                {
+                    <div class="daily-error-groups">
+                        @foreach (var group in TodayErrorsGrouped)
+                        {
+                            <details class="daily-error-group" open="@(group == TodayErrorsGrouped.First())">
+                                <summary class="daily-error-summary">
+                                    <span class="daily-error-date">@(DateTime.Parse(group.Key.ToString()).ToFarsi())</span>
+                                    <span class="daily-error-count-badge">@group.Sum(e => e.Count) خطا</span>
+                                </summary>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>دستگاه</th>
+                                            <th>کد خطا</th>
+                                            <th>تعداد</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var e in group.OrderByDescending(x => x.Count))
+                                        {
+                                            <tr>
+                                                <td>@e.Device</td>
+                                                <td class="ltr-cell">@e.ErrorCode</td>
+                                                <td class="@(e.Count > 5 ? "cell-danger" : "")">@e.Count</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </details>
+                        }
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private List<AtmPeriodListItemDto> _periods = new();
+    [Parameter] public Guid AtmId { get; set; }
+    private AtmDetailDto? _detail;
+    private DateTime? _from;
+    private DateTime? _to;
+    private bool _chartsInitialized;
+    private int _totalCount;
+    private int _page = 1;
+    private const int PageSize = 8;
+    private bool _loadingList = true;
+    private Guid? _selectedPeriodId;
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)PageSize));
+    private List<IGrouping<DateOnly, AtmTodayErrorDto>> TodayErrorsGrouped =>
+    _detail?.TodayErrors
+        .GroupBy(e => e.Date)
+        .OrderByDescending(g => g.Key)
+        .ToList() ?? new();
+    private async Task LoadPeriodsAsync()
+    {
+        _loadingList = true;
+        var (items, total) = await QueryService.GetAtmPeriodsAsync(AtmId, _page, PageSize, CancellationToken.None);
+        _periods = items;
+        _totalCount = total;
+        _loadingList = false;
+    }
+    private async Task GoToPage(int page)
+    {
+        if (page < 1 || page > TotalPages) return;
+        _page = page;
+        await LoadPeriodsAsync();
+    }
+
+    private async Task SelectPeriod(Guid periodId)
+    {
+        _selectedPeriodId = periodId;
+        _detail = null;
+        _chartsInitialized = false;
+        StateHasChanged();
+
+        _detail = await QueryService.GetAtmPeriodDetailAsync(AtmId, periodId, CancellationToken.None);
+   
+    
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        await LoadPeriodsAsync();
+
+    }
+    private string CpuStatusText => _detail!.CpuUsagePercent switch
+    {
+        >= 85 => "بحرانی",
+        >= 60 => "هشدار",
+        _ => "نرمال"
+    };
+    private string CpuStatusClass => _detail!.CpuUsagePercent switch
+    {
+        >= 85 => "text-danger",
+        >= 60 => "text-warning",
+        _ => "text-success"
+    };
+
+    private int RamPercent => _detail!.RamTotalGb == 0 ? 0 : (int)Math.Round(100.0 * _detail.RamUsedGb / _detail.RamTotalGb);
+    private string RamStatusText => RamPercent switch { >= 85 => "بحرانی", >= 60 => "هشدار", _ => "نرمال" };
+    private string RamStatusClass => RamPercent switch { >= 85 => "text-danger", >= 60 => "text-warning", _ => "text-success" };
+
+    private int DiskPercent => _detail!.DiskTotalGb == 0 ? 0 : (int)Math.Round(100.0 * _detail.DiskUsedGb / _detail.DiskTotalGb);
+    private string DiskStatusText => DiskPercent switch { >= 85 => "بحرانی", >= 60 => "هشدار", _ => "نرمال" };
+    private string DiskStatusClass => DiskPercent switch { >= 85 => "text-danger", >= 60 => "text-warning", _ => "text-success" };
+
+    private async Task LoadAsync()
+    {
+        var from = _from.HasValue ? DateOnly.FromDateTime(_from.Value) : (DateOnly?)null;
+        var to = _to.HasValue ? DateOnly.FromDateTime(_to.Value) : (DateOnly?)null;
+        _detail = await QueryService.GetAtmDetailAsync(AtmId, from, to, CancellationToken.None);
+    }
+
+    private async Task ApplyFilter()
+    {
+        await LoadAsync();
+        _chartsInitialized = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // ۱. اگر دیتا هنوز از سرور لود نشده، هیچ کاری نکن و منتظر رندرهای بعدی بمون
+        if (_detail is null) return;
+
+        // ۲. اگر چارت‌ها قبلاً رندر شده‌اند، مجدداً متد JS را صدا نزن
+        if (_chartsInitialized) return;
+
+        // ۳. تغییر وضعیت برای جلوگیری از اجرای همزمان یا چندباره
+        _chartsInitialized = true;
+
+        var labels = _detail.Periods.Select(p => p.EndDate.ToString("yyyy-MM-dd")).ToArray();
+        var transactions = _detail.Periods.Select(p => p.TotalTransactions).ToArray();
+        var cassetteLabels = _detail.CassettesLatest.Select(c => $"کاست {c.CassetteIndex}").ToArray();
+        var pickup = _detail.CassettesLatest.Select(c => c.TotalPickup).ToArray();
+        var reject = _detail.CassettesLatest.Select(c => c.TotalReject).ToArray();
+        var errorLabels = _detail.ErrorsAggregated.Select(e => e.Device).Distinct().ToArray();
+        var errorValues = errorLabels.Select(d => _detail.ErrorsAggregated.Where(e => e.Device == d).Sum(e => e.Count)).ToArray();
+
+        try
+        {
+            // یک تاخیر بسیار کوتاه تعمدی کمک می‌کند تا مطمئن شویم DOM کاملاً رندر شده و المان‌های <canvas> روی صفحه قرار گرفته‌اند
+            await Task.Delay(50);
+
+            await JS.InvokeVoidAsync("atmCharts.render",
+                 cassetteLabels, pickup, reject, errorLabels, errorValues,
+                 _detail.CpuUsagePercent, RamPercent, DiskPercent);
+        }
+        catch (Exception ex)
+        {
+            // ریست کردن فلگ در صورت بروز خطا برای تلاش مجدد
+            _chartsInitialized = false;
+            Console.WriteLine($"JS Interop Error: {ex.Message}");
+        }
+    }
+}}

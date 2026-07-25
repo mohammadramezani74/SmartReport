@@ -1,0 +1,285 @@
+﻿@page "/"
+@page "/atms"
+@using SmartReportLog.Model.Atm.Queries
+@using SmartReportLog.Services.atm.Query
+@using SmartReportLog.Utilities.DateTimeHalper
+@inject IAtmQueryService QueryService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<PageTitle>دستگاه‌های ATM</PageTitle>
+
+<div class="atm-dashboard-container">
+    @* هدر اصلی صفحه *@
+    <header class="page-header">
+        <div class="header-title">
+            <h1>دستگاه‌های ATM</h1>
+            <p>مدیریت و مانیتورینگ وضعیت گزارش‌دهی سیستم</p>
+        </div>
+    </header>
+
+    @* سکشن کارت‌های آمار سریع (KPI Widgets) *@
+    @if (_summary != null)
+    {
+        <section class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-icon active-icon"><i class="ti ti-device-desktop"></i></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">وضعیت اتصال پایانی این هفته</span>
+                    <span class="kpi-value">@_summary.ActiveAtmsCount از @_summary.TotalAtmsCount</span>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon report-icon"><i class="ti ti-activity"></i></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">تراکنش‌های پردازش شده این هفته</span>
+                    <span class="kpi-value">@_summary.TodayTotalReportsCount.ToString("N0")</span>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon error-kpi-icon"><i class="ti ti-alert-octagon"></i></div>
+                <div class="kpi-info">
+                    <span class="kpi-label">خطاهای سخت‌افزاری ثبت شده این هفته</span>
+                    <span class="kpi-value">@_summary.TodayTotalErrorsCount.ToString("N0")</span>
+                </div>
+            </div>
+        </section>
+    }
+
+    @* سکشن یکپارچه لیست دستگاه‌ها، سرچ و پیجینیشن *@
+    <section class="content-section-card">
+        <div class="section-card-header">
+            <div class="section-title">
+                <i class="ti ti-list"></i>
+                <span>لیست دستگاه‌ها</span>
+            </div>
+            <div class="search-box">
+                <i class="ti ti-search"></i>
+                <input placeholder="جستجوی سریال دستگاه..."
+                       @bind="_search"
+                       @bind:event="oninput"
+                       @onkeyup="OnSearch" />
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="skeleton-grid">
+                @for (int i = 0; i < _pageSize; i++)
+                {
+                    <div class="skeleton-card"></div>
+                }
+            </div>
+        }
+        else if (_atms.Count == 0)
+        {
+            <div class="empty-state">
+                <i class="ti ti-device-desktop-off"></i>
+                <p>دستگاهی با این مشخصات یافت نشد.</p>
+            </div>
+        }
+        else
+        {
+            <div class="atm-grid">
+                @foreach (var atm in _atms)
+                {
+                    <div class="atm-card" @onclick="() => GoToDetail(atm.Id)">
+                        <div class="atm-card-top">
+                            <div class="atm-icon"><i class="ti ti-device-desktop-analytics"></i></div>
+                            <span class="badge">@atm.TotalReportsCount گزارش</span>
+                        </div>
+
+                        <div class="atm-serial">@atm.SerialNumber</div>
+
+                        <div class="atm-meta">
+                            <span><i class="ti ti-calendar"></i> @(atm.LastReportEnd!=null?DateTime.Parse(atm.LastReportEnd.ToString()).ToFarsi() :"بدون گزارش") </span>
+                            <i class="ti ti-arrow-left arrow"></i>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (_totalPages > 1)
+            {
+                <div class="pagination-container">
+                    <button class="pagination-btn" @onclick="() => ChangePageAsync(_currentPage - 1)" disabled="@(_currentPage == 1)">
+                        <i class="ti ti-chevron-right"></i>
+                    </button>
+
+                    @for (int i = 1; i <= _totalPages; i++)
+                    {
+                        var pageNumber = i;
+                        <button class="pagination-btn @(pageNumber == _currentPage ? "active" : "")"
+                                @onclick="() => ChangePageAsync(pageNumber)">
+                            @pageNumber
+                        </button>
+                    }
+
+                    <button class="pagination-btn" @onclick="() => ChangePageAsync(_currentPage + 1)" disabled="@(_currentPage == _totalPages)">
+                        <i class="ti ti-chevron-left"></i>
+                    </button>
+                </div>
+            }
+        }
+    </section>
+
+    @* سکشن پایینی: دو چارت در کنار هم برای آنالیز شبکه *@
+    <div class="dashboard-charts-grid">
+        @* چارت اول: ۱۰ دستگاه پر خطا *@
+        <section class="content-section-card">
+            <div class="section-card-header">
+                <div class="section-title">
+                    <i class="ti ti-alert-triangle error-icon"></i>
+                    <span>۱۰ دستگاه با بیشترین میزان خطا</span>
+                </div>
+            </div>
+
+            @if (_chartLoading)
+            {
+                <div class="chart-skeleton"></div>
+            }
+            else if (_topErrors.Count == 0)
+            {
+                <div class="empty-state small">
+                    <i class="ti ti-mood-happy"></i>
+                    <p>هیچ خطایی برای دستگاه‌ها ثبت نشده است.</p>
+                </div>
+            }
+            else
+            {
+                <div class="chart-wrapper">
+                    <canvas id="errorChart"></canvas>
+                </div>
+            }
+        </section>
+
+        @* چارت دوم: تفکیک و توزیع سخت‌افزارهای خطا دار هفته اخیر *@
+        <section class="content-section-card">
+            <div class="section-card-header">
+                <div class="section-title">
+                    <i class="ti ti-chart-pie"></i>
+                    <span>سهم سخت‌افزارها در خطاهای ۷ روز گذشته</span>
+                </div>
+            </div>
+
+            @if (_chartLoading)
+            {
+                <div class="chart-skeleton"></div>
+            }
+            else if (_errorDistribution.Count == 0)
+            {
+                <div class="empty-state small">
+                    <i class="ti ti-circle-check-bool"></i>
+                    <p>داده خطایی برای تحلیل سهم سخت‌افزارها یافت نشد.</p>
+                </div>
+            }
+            else
+            {
+                <div class="chart-wrapper">
+                    <canvas id="errorDistributionChart"></canvas>
+                </div>
+            }
+        </section>
+    </div>
+</div>
+
+@code {
+    private List<AtmListItemDto> _atms = new();
+    private List<AtmErrorCountDto> _topErrors = new();
+    private List<AtmErrorTypeDistributionDto> _errorDistribution = new();
+    private AtmDashboardSummaryDto? _summary;
+
+    private string _search = string.Empty;
+    private bool _loading = true;
+    private bool _chartLoading = true;
+    private CancellationTokenSource? _debounceCts;
+
+    private int _currentPage = 1;
+    private int _pageSize = 12;
+    private int _totalCount = 0;
+    private int _totalPages => (int)Math.Ceiling((double)_totalCount / _pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSummaryDataAsync();
+        await LoadChartsDataAsync();
+        await LoadAtmsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_chartLoading)
+        {
+            if (_topErrors.Count > 0)
+                await RenderErrorChartAsync();
+
+            if (_errorDistribution.Count > 0)
+                await RenderDistributionChartAsync();
+        }
+    }
+
+    private async Task LoadSummaryDataAsync()
+    {
+        _summary = await QueryService.GetDashboardSummaryAsync(CancellationToken.None);
+    }
+
+    private async Task LoadAtmsAsync()
+    {
+        _loading = true;
+        var result = await QueryService.GetAtmListAsync(_search, _currentPage, _pageSize, CancellationToken.None);
+        _atms = result.Items;
+        _totalCount = result.TotalCount;
+        _loading = false;
+    }
+
+    private async Task ChangePageAsync(int newPage)
+    {
+        if (newPage < 1 || newPage > _totalPages || newPage == _currentPage) return;
+        _currentPage = newPage;
+        await LoadAtmsAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadChartsDataAsync()
+    {
+        _chartLoading = true;
+        _topErrors = await QueryService.TopTenAtmWithMostErrors(CancellationToken.None);
+        _errorDistribution = await QueryService.GetErrorTypeDistributionAsync(CancellationToken.None);
+        _chartLoading = false;
+    }
+
+    private async Task RenderErrorChartAsync()
+    {
+        var labels = _topErrors.Select(x => x.SerialNumber).ToArray();
+        var data = _topErrors.Select(x => x.ErrorCount).ToArray();
+        var ids = _topErrors.Select(x => x.AtmId.ToString()).ToArray();
+
+        await JS.InvokeVoidAsync("renderErrorChart", labels, data, ids);
+    }
+
+    private async Task RenderDistributionChartAsync()
+    {
+        var categories = _errorDistribution.Select(x => x.ErrorCategory).ToArray();
+        var values = _errorDistribution.Select(x => x.Count).ToArray();
+        var colors = _errorDistribution.Select(x => x.ColorHex).ToArray();
+
+        await JS.InvokeVoidAsync("renderDistributionChart", categories, values, colors);
+    }
+
+    private void GoToDetail(Guid atmId) => Nav.NavigateTo($"/atms/{atmId}");
+
+    private async Task OnSearch()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(300, _debounceCts.Token);
+            _currentPage = 1;
+            await LoadAtmsAsync();
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { }
+    }
+}

@@ -1,0 +1,87 @@
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--bg-sidebar);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 16px;
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 0 8px 24px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 16px;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: rgba(255,255,255,0.65);
+    font-size: 14px;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+    .nav-item i {
+        font-size: 18px;
+    }
+
+    .nav-item:hover {
+        background: rgba(255,255,255,0.06);
+        color: #fff;
+    }
+
+    .nav-item.active {
+        background: var(--primary);
+        color: #fff;
+    }
+
+.main-area {
+    flex: 1;
+    min-width: 0;
+}
+
+.content-area {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 28px;
+}
+
+#blazor-error-ui .reload {
+    color: var(--danger);
+    font-weight: 600;
+    text-decoration: underline;
+    margin-right: 8px;
+}

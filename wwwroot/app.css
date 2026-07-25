@@ -1,0 +1,89 @@
+:root {
+    --bg-page: #f4f5f9;
+    --bg-sidebar: #14162b;
+    --bg-card: #ffffff;
+    --primary: #5b5ff0;
+    --primary-light: #eceefe;
+    --primary-dark: #4245c9;
+    --text-primary: #1a1c2e;
+    --text-secondary: #6b7089;
+    --text-muted: #9a9db3;
+    --border: #e8e9f2;
+    --danger: #ef4444;
+    --danger-light: #fee2e2;
+    --success: #16a34a;
+    --success-light: #dcfce7;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --shadow-card: 0 2px 8px rgba(20, 22, 43, 0.04), 0 1px 2px rgba(20, 22, 43, 0.06);
+    --shadow-hover: 0 8px 24px rgba(20, 22, 43, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: 'Vazirmatn', 'Segoe UI', sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    direction: rtl;
+    margin: 0;
+}
+
+input, select, button {
+    font-family: inherit;
+    direction: rtl;
+}
+
+    input[type="text"], input[type="date"] {
+        height: 40px;
+        padding: 0 14px;
+        border-radius: var(--radius-sm);
+        border: 1.5px solid var(--border);
+        background: var(--bg-card);
+        font-size: 14px;
+        color: var(--text-primary);
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+        input[type="text"]:focus, input[type="date"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+button {
+    height: 40px;
+    padding: 0 18px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+    button:hover {
+        background: var(--primary-dark);
+    }
+
+    button:active {
+        transform: scale(0.97);
+    }
+
+#blazor-error-ui {
+    background: var(--danger-light);
+    color: var(--danger);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-hover);
+    display: none;
+    left: 24px;
+    bottom: 24px;
+    position: fixed;
+    padding: 14px 20px;
+    font-size: 14px;
+}
