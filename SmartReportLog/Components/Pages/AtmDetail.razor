@@ -17,6 +17,32 @@ else
         <div>
             <a href="/atms" class="back-link"><i class="ti ti-arrow-right"></i> بازگشت به لیست</a>
             <h1 class="serial-title">@_detail.SerialNumber</h1>
+
+            @if (_detail.Location is not null && HasLocation)
+            {
+                <div class="location-strip">
+                    @if (!string.IsNullOrWhiteSpace(_detail.Location.DeviceName))
+                    {
+                        <span class="loc-pill model"><i class="ti ti-cpu"></i> @_detail.Location.DeviceName</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_detail.Location.BranchName))
+                    {
+                        <span class="loc-pill"><i class="ti ti-building-bank"></i> شعبه @_detail.Location.BranchName</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_detail.Location.CityName))
+                    {
+                        <span class="loc-pill"><i class="ti ti-map-pin"></i> @_detail.Location.CityName</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_detail.Location.SupervisionStateName))
+                    {
+                        <span class="loc-pill"><i class="ti ti-sitemap"></i> @_detail.Location.SupervisionStateName</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_detail.Location.CustomerName))
+                    {
+                        <span class="loc-pill"><i class="ti ti-briefcase"></i> @_detail.Location.CustomerName</span>
+                    }
+                </div>
+            }
         </div>
     </div>
 
@@ -53,6 +79,10 @@ else
                                 <span><i class="ti ti-id"></i> @p.TotalCards</span>
                                 <span><i class="ti ti-receipt"></i> @p.ReceiptCount</span>
                             </div>
+                            @if (!string.IsNullOrWhiteSpace(p.TicketNumber))
+                            {
+                                <div class="period-ticket"><i class="ti ti-ticket"></i> تیکت @p.TicketNumber</div>
+                            }
                         </div>
                     }
                 </div>
@@ -98,20 +128,94 @@ else
                 <div class="stat-card">
                     <div class="stat-icon red"><i class="ti ti-alert-triangle"></i></div>
                     <div>
-                        <div >@_detail.gayaversion</div>
+                        <div>@_detail.gayaversion</div>
                         <div class="stat-label">ورژن گایا</div>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon blue"><i class="ti ti-brand-windows"></i></div>
                     <div>
-                        <div >@(_detail!.OsVersion ?? "—")</div>
+                        <div>@(_detail!.OsVersion ?? "—")</div>
                         <div class="stat-label">ویندوز</div>
                     </div>
                 </div>
             </div>
-          
-        
+
+            <div class="ticket-card @TicketCardStateClass">
+                <div class="ticket-head">
+                    <div class="ticket-head-right">
+                        <span class="ticket-head-icon"><i class="ti ti-ticket"></i></span>
+                        <span class="ticket-head-title">اطلاعات تیکت</span>
+                    </div>
+                    <span class="ticket-status">@TicketStatusText</span>
+                </div>
+
+                @if (_detail.Ticket is null)
+                {
+                    <div class="ticket-empty">
+                        <i class="ti ti-ticket-off"></i>
+                        <p>برای این گزارش شماره تیکتی ثبت نشده است.</p>
+                        <a class="ticket-link-btn" href="/ticket-sync">افزودن اطلاعات تیکت</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="ticket-grid">
+                        <div class="ticket-field wide">
+                            <span class="ticket-label">شماره تیکت</span>
+                            <span class="ticket-value ltr-cell strong">
+                                @(_detail.Ticket.RequestNo?.ToString() ?? _detail.Ticket.TicketNumber ?? "—")
+                            </span>
+                        </div>
+
+                        <div class="ticket-field">
+                            <span class="ticket-label">کارشناس</span>
+                            <span class="ticket-value">@Dash(_detail.Ticket.TechName)</span>
+                        </div>
+
+                        <div class="ticket-field">
+                            <span class="ticket-label">کد پرسنلی</span>
+                            <span class="ticket-value ltr-cell">@Dash(_detail.Ticket.PersonnelCode)</span>
+                        </div>
+
+                        <div class="ticket-field">
+                            <span class="ticket-label">نوع خرابی</span>
+                            <span class="ticket-value">@Dash(_detail.Ticket.AssignType)</span>
+                        </div>
+
+                        <div class="ticket-field">
+                            <span class="ticket-label">تاریخ اعلام</span>
+                            <span class="ticket-value ltr-cell">@FormatJalali(_detail.Ticket.CallDate)</span>
+                        </div>
+
+                        <div class="ticket-field">
+                            <span class="ticket-label">آخرین مراجعه</span>
+                            <span class="ticket-value ltr-cell">@FormatJalali(_detail.Ticket.ReferDate)</span>
+                        </div>
+
+                        <div class="ticket-field">
+                            <span class="ticket-label">ساعت پایان مراجعه</span>
+                            <span class="ticket-value ltr-cell">@FormatClock(_detail.Ticket.ReferEndTime)</span>
+                        </div>
+                    </div>
+
+                    @if (!_detail.Ticket.IsVerified)
+                    {
+                        <div class="ticket-warning">
+                            <i class="ti ti-alert-triangle"></i>
+                            <span>این شماره تیکت توسط دستگاه ارسال شده اما در سامانه  تأیید نشده است.</span>
+                            <a href="/ticket-sync">تلاش مجدد</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ticket-foot">
+                            <span><i class="ti ti-refresh"></i> آخرین دریافت از : @FetchedAtText</span>
+                            <a href="/ticket-sync">به‌روزرسانی</a>
+                        </div>
+                    }
+                }
+            </div>
 
             <div class="resource-grid">
                 <div class="resource-card">
@@ -184,7 +288,7 @@ else
                             <tr>
                                 <td>کاست @c.CassetteIndex</td>
                                 <td class="ltr-cell">@c.Denomination.ToString("N0") ریال</td>
-  
+
                                 <td class="@(c.TotalReject > 0 ? "cell-danger" : "")">@c.TotalReject</td>
                             </tr>
                         }
@@ -268,6 +372,57 @@ else
 
 @code {
     private List<AtmPeriodListItemDto> _periods = new();
+
+    // ---------- کمکی‌های نمایش اطلاعات تیکت ----------
+
+    private bool HasLocation =>
+        _detail?.Location is not null &&
+        (!string.IsNullOrWhiteSpace(_detail.Location.DeviceName) ||
+         !string.IsNullOrWhiteSpace(_detail.Location.BranchName) ||
+         !string.IsNullOrWhiteSpace(_detail.Location.CityName) ||
+         !string.IsNullOrWhiteSpace(_detail.Location.SupervisionStateName) ||
+         !string.IsNullOrWhiteSpace(_detail.Location.CustomerName));
+
+    private string TicketStatusText => _detail?.Ticket switch
+    {
+        null => "ثبت نشده",
+        { IsVerified: true } => "تأیید شده",
+        _ => "تأیید نشده"
+    };
+
+    private string TicketCardStateClass => _detail?.Ticket switch
+    {
+        null => "is-empty",
+        { IsVerified: true } => "is-verified",
+        _ => "is-unverified"
+    };
+
+    private string FetchedAtText =>
+        _detail?.Ticket?.FetchedAt is { } dt ? dt.ToFarsi() : "—";
+
+    private static string Dash(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    // 14050503  ->  1405/05/03
+    private static string FormatJalali(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "—";
+        raw = raw.Trim();
+        return raw.Length == 8
+            ? $"{raw[..4]}/{raw.Substring(4, 2)}/{raw.Substring(6, 2)}"
+            : raw;
+    }
+
+    // 1108 -> 11:08   |   905 -> 09:05
+    private static string FormatClock(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "—";
+        raw = raw.Trim().PadLeft(4, '0');
+        return raw.Length == 4
+            ? $"{raw[..2]}:{raw.Substring(2, 2)}"
+            : raw;
+    }
+
     [Parameter] public Guid AtmId { get; set; }
     private AtmDetailDto? _detail;
     private DateTime? _from;
@@ -307,8 +462,8 @@ else
         StateHasChanged();
 
         _detail = await QueryService.GetAtmPeriodDetailAsync(AtmId, periodId, CancellationToken.None);
-   
-    
+
+
         StateHasChanged();
     }
 

@@ -1,0 +1,201 @@
+﻿@page "/ticket-sync"
+@using SmartReportLog.Model.Ticket
+@using SmartReportLog.Services.Ticket
+@inject ITicketSyncService TicketSynce
+@rendermode InteractiveServer
+
+<PageTitle>به‌روزرسانی اطلاعات تیکت</PageTitle>
+
+<div class="sync-page" dir="rtl">
+    <h3>به‌روزرسانی دستی اطلاعات تیکت</h3>
+    <p class="hint">شماره سریال دستگاه و شماره تیکت را وارد کنید تا اطلاعات از سامانه شرکت  دریافت و ذخیره شود.</p>
+
+    <div class="form-row">
+        <label>شماره سریال</label>
+        <input @bind="_serial" @bind:event="oninput" @onkeydown="OnKeyDown"
+               placeholder="مثال: Y561410001905" />
+    </div>
+
+    <div class="form-row">
+        <label>شماره تیکت</label>
+        <input @bind="_ticket" @bind:event="oninput" @onkeydown="OnKeyDown"
+               placeholder="مثال: 2285846" />
+    </div>
+
+    <button class="btn" @onclick="Sync" disabled="@(_busy || !CanSubmit)">
+        @(_busy ? "در حال دریافت..." : "دریافت و به‌روزرسانی")
+    </button>
+
+    @if (_result is not null)
+    {
+        <div class="result @(_result.Success ? "ok" : "fail")">
+            <span class="icon">@(_result.Success ? "✅" : "❌")</span>
+            <div>
+                <p>@_result.Message</p>
+                @if (_result.Success && _result.UpdatedReportsCount > 0)
+                {
+                    <small>تعداد گزارش‌های به‌روزشده: @_result.UpdatedReportsCount</small>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_error is not null)
+    {
+        <pre class="error-box">@_error</pre>
+    }
+</div>
+
+<style>
+    .sync-page {
+        font-family: Tahoma, sans-serif;
+        max-width: 520px;
+        margin: 24px auto;
+        padding: 24px;
+        background: #fff;
+        border: 1px solid #e3e6ea;
+        border-radius: 14px;
+    }
+
+        .sync-page h3 {
+            margin: 0 0 4px;
+            font-size: 18px;
+        }
+
+    .hint {
+        color: #6b7280;
+        font-size: 13px;
+        margin: 0 0 20px;
+    }
+
+    .form-row {
+        margin-bottom: 14px;
+    }
+
+        .form-row label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: #374151;
+        }
+
+        .form-row input {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+            .form-row input:focus {
+                outline: none;
+                border-color: #2563eb;
+            }
+
+    .btn {
+        width: 100%;
+        padding: 10px;
+        margin-top: 6px;
+        border: none;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #fff;
+        font-family: inherit;
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+    .result {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        margin-top: 20px;
+        padding: 14px;
+        border-radius: 10px;
+        font-size: 14px;
+    }
+
+        .result.ok {
+            background: #e6f4ea;
+            color: #1e7e34;
+        }
+
+        .result.fail {
+            background: #fdecea;
+            color: #a94442;
+        }
+
+        .result p {
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .result small {
+            display: block;
+            margin-top: 6px;
+            opacity: 0.85;
+            font-weight: normal;
+        }
+
+        .result .icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+
+    .error-box {
+        margin-top: 16px;
+        padding: 12px;
+        background: #fdecea;
+        color: #a94442;
+        border-radius: 8px;
+        direction: ltr;
+        text-align: left;
+        font-size: 12px;
+        overflow: auto;
+        max-height: 240px;
+    }
+</style>
+
+@code {
+    private string? _serial;
+    private string? _ticket;
+    private bool _busy;
+    private TicketSyncResult? _result;
+    private string? _error;
+
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(_serial) && !string.IsNullOrWhiteSpace(_ticket);
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && CanSubmit && !_busy)
+            await Sync();
+    }
+
+    private async Task Sync()
+    {
+        _busy = true;
+        _result = null;
+        _error = null;
+
+        try
+        {
+            _result = await TicketSynce.SyncAsync(_serial, _ticket, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.ToString();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -20,6 +20,5 @@
             public string? AssignType { get; set; }
             public string? TechName { get; set; }
         }
-
 }
 

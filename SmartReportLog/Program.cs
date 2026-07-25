@@ -21,6 +21,7 @@ builder.Services.AddDbContext<ErDbContext>(x =>
 builder.Services.AddScoped<ITicketInfoProvider, SqlTicketInfoProvider>();
 builder.Services.AddScoped<IAtmIngestionService,AtmIngestionService>();
 builder.Services.AddScoped<IAtmQueryService, AtmQueryService>();
+builder.Services.AddScoped<ITicketSyncService, TicketSyncService>();
 var app = builder.Build();
 
 

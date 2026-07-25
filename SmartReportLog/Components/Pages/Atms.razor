@@ -47,26 +47,66 @@
         </section>
     }
 
-    @* سکشن یکپارچه لیست دستگاه‌ها، سرچ و پیجینیشن *@
+    @* سکشن یکپارچه لیست دستگاه‌ها، سرچ، فیلتر و پیجینیشن *@
     <section class="content-section-card">
         <div class="section-card-header">
             <div class="section-title">
                 <i class="ti ti-list"></i>
                 <span>لیست دستگاه‌ها</span>
+                @if (!_loading)
+                {
+                    <span class="count-chip">@_totalCount.ToString("N0")</span>
+                }
             </div>
-            <div class="search-box">
-                <i class="ti ti-search"></i>
-                <input placeholder="جستجوی سریال دستگاه..."
-                       @bind="_search"
-                       @bind:event="oninput"
-                       @onkeyup="OnSearch" />
+
+            <div class="filter-group">
+                <div class="select-box">
+                    <i class="ti ti-map-pin"></i>
+                    <select @bind="_stateFilter" @bind:after="OnFilterChangedAsync">
+                        <option value="">همه استان‌ها</option>
+                        @foreach (var st in _states)
+                        {
+                            <option value="@st.Code">@st.Name (@st.AtmCount)</option>
+                        }
+                        <option value="none">بدون اطلاعات مکانی</option>
+                    </select>
+                    <i class="ti ti-chevron-down chevron"></i>
+                </div>
+
+                <div class="search-box">
+                    <i class="ti ti-search"></i>
+                    <input placeholder="جستجوی سریال، شعبه یا شهر..."
+                           @bind="_search"
+                           @bind:event="oninput"
+                           @onkeyup="OnSearch" />
+                </div>
             </div>
         </div>
+
+        @if (HasActiveFilter && !_loading)
+        {
+            <div class="active-filters">
+                @if (!string.IsNullOrWhiteSpace(_search))
+                {
+                    <button class="filter-chip" @onclick="ClearSearchAsync">
+                        <span>جستجو: @_search</span>
+                        <i class="ti ti-x"></i>
+                    </button>
+                }
+                @if (!string.IsNullOrEmpty(_stateFilter))
+                {
+                    <button class="filter-chip" @onclick="ClearStateAsync">
+                        <span>@ActiveStateLabel</span>
+                        <i class="ti ti-x"></i>
+                    </button>
+                }
+            </div>
+        }
 
         @if (_loading)
         {
             <div class="skeleton-grid">
-                @for (int i = 0; i < _pageSize; i++)
+                @for (int i = 0; i < 8; i++)
                 {
                     <div class="skeleton-card"></div>
                 }
@@ -77,6 +117,10 @@
             <div class="empty-state">
                 <i class="ti ti-device-desktop-off"></i>
                 <p>دستگاهی با این مشخصات یافت نشد.</p>
+                @if (HasActiveFilter)
+                {
+                    <button class="ghost-btn" @onclick="ClearAllFiltersAsync">حذف فیلترها</button>
+                }
             </div>
         }
         else
@@ -84,7 +128,10 @@
             <div class="atm-grid">
                 @foreach (var atm in _atms)
                 {
-                    <div class="atm-card" @onclick="() => GoToDetail(atm.Id)">
+                    <div class="atm-card" tabindex="0"
+                         @onclick="() => GoToDetail(atm.Id)"
+                         @onkeydown="(e) => OnCardKeyDown(e, atm.Id)">
+
                         <div class="atm-card-top">
                             <div class="atm-icon"><i class="ti ti-device-desktop-analytics"></i></div>
                             <span class="badge">@atm.TotalReportsCount گزارش</span>
@@ -92,8 +139,33 @@
 
                         <div class="atm-serial">@atm.SerialNumber</div>
 
+                        @if (!string.IsNullOrWhiteSpace(atm.DeviceName))
+                        {
+                            <div class="atm-model" title="@atm.DeviceName">@atm.DeviceName</div>
+                        }
+
+                        @if (HasLocation(atm))
+                        {
+                            <div class="atm-location">
+                                <i class="ti ti-building-bank"></i>
+                                <span>@LocationLine(atm)</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="atm-location is-missing">
+                                <i class="ti ti-map-pin-off"></i>
+                                <span>اطلاعات مکانی ثبت نشده</span>
+                            </div>
+                        }
+
                         <div class="atm-meta">
-                            <span><i class="ti ti-calendar"></i> @(atm.LastReportEnd!=null?DateTime.Parse(atm.LastReportEnd.ToString()).ToFarsi() :"بدون گزارش") </span>
+                            <span>
+                                <i class="ti ti-calendar"></i>
+                                @(atm.LastReportEnd != null
+                                    ? DateTime.Parse(atm.LastReportEnd.ToString()!).ToFarsi()
+                                    : "بدون گزارش")
+                            </span>
                             <i class="ti ti-arrow-left arrow"></i>
                         </div>
                     </div>
@@ -103,22 +175,42 @@
             @if (_totalPages > 1)
             {
                 <div class="pagination-container">
-                    <button class="pagination-btn" @onclick="() => ChangePageAsync(_currentPage - 1)" disabled="@(_currentPage == 1)">
-                        <i class="ti ti-chevron-right"></i>
-                    </button>
+                    <span class="page-summary">
+                        صفحه @_currentPage از @_totalPages
+                    </span>
 
-                    @for (int i = 1; i <= _totalPages; i++)
-                    {
-                        var pageNumber = i;
-                        <button class="pagination-btn @(pageNumber == _currentPage ? "active" : "")"
-                                @onclick="() => ChangePageAsync(pageNumber)">
-                            @pageNumber
+                    <div class="pagination-buttons">
+                        <button class="pagination-btn" title="صفحه قبل"
+                                @onclick="() => ChangePageAsync(_currentPage - 1)"
+                                disabled="@(_currentPage == 1)">
+                            <i class="ti ti-chevron-right"></i>
                         </button>
-                    }
 
-                    <button class="pagination-btn" @onclick="() => ChangePageAsync(_currentPage + 1)" disabled="@(_currentPage == _totalPages)">
-                        <i class="ti ti-chevron-left"></i>
-                    </button>
+                        @{
+                            int? previous = null;
+                        }
+                        @foreach (var pageNumber in VisiblePages())
+                        {
+                            if (previous.HasValue && pageNumber - previous.Value > 1)
+                            {
+                                <span class="pagination-gap">…</span>
+                            }
+
+                            var p = pageNumber;
+                            <button class="pagination-btn @(p == _currentPage ? "active" : "")"
+                                    @onclick="() => ChangePageAsync(p)">
+                                @p
+                            </button>
+
+                            previous = pageNumber;
+                        }
+
+                        <button class="pagination-btn" title="صفحه بعد"
+                                @onclick="() => ChangePageAsync(_currentPage + 1)"
+                                disabled="@(_currentPage == _totalPages)">
+                            <i class="ti ti-chevron-left"></i>
+                        </button>
+                    </div>
                 </div>
             }
         }
@@ -186,13 +278,17 @@
 
 @code {
     private List<AtmListItemDto> _atms = new();
+    private List<AtmStateOptionDto> _states = new();
     private List<AtmErrorCountDto> _topErrors = new();
     private List<AtmErrorTypeDistributionDto> _errorDistribution = new();
     private AtmDashboardSummaryDto? _summary;
 
     private string _search = string.Empty;
+    private string _stateFilter = string.Empty;   // "" = همه، "none" = بدون مکان، در غیر این صورت کد استان
+
     private bool _loading = true;
     private bool _chartLoading = true;
+    private bool _chartsRendered;
     private CancellationTokenSource? _debounceCts;
 
     private int _currentPage = 1;
@@ -200,23 +296,34 @@
     private int _totalCount = 0;
     private int _totalPages => (int)Math.Ceiling((double)_totalCount / _pageSize);
 
+    private bool HasActiveFilter =>
+        !string.IsNullOrWhiteSpace(_search) || !string.IsNullOrEmpty(_stateFilter);
+
+    private string ActiveStateLabel =>
+        _stateFilter == "none"
+            ? "بدون اطلاعات مکانی"
+            : _states.FirstOrDefault(s => s.Code.ToString() == _stateFilter)?.Name ?? "استان";
+
     protected override async Task OnInitializedAsync()
     {
         await LoadSummaryDataAsync();
+        await LoadStatesAsync();
         await LoadChartsDataAsync();
         await LoadAtmsAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_chartLoading)
-        {
-            if (_topErrors.Count > 0)
-                await RenderErrorChartAsync();
+        // فقط یک بار بعد از آماده شدن داده‌ها رندر شود، نه در هر تغییر صفحه
+        if (_chartLoading || _chartsRendered) return;
 
-            if (_errorDistribution.Count > 0)
-                await RenderDistributionChartAsync();
-        }
+        _chartsRendered = true;
+
+        if (_topErrors.Count > 0)
+            await RenderErrorChartAsync();
+
+        if (_errorDistribution.Count > 0)
+            await RenderDistributionChartAsync();
     }
 
     private async Task LoadSummaryDataAsync()
@@ -224,10 +331,24 @@
         _summary = await QueryService.GetDashboardSummaryAsync(CancellationToken.None);
     }
 
+    private async Task LoadStatesAsync()
+    {
+        _states = await QueryService.GetStateOptionsAsync(CancellationToken.None);
+    }
+
     private async Task LoadAtmsAsync()
     {
         _loading = true;
-        var result = await QueryService.GetAtmListAsync(_search, _currentPage, _pageSize, CancellationToken.None);
+
+        int? stateCode = null;
+        bool onlyMissing = _stateFilter == "none";
+
+        if (!onlyMissing && int.TryParse(_stateFilter, out var code))
+            stateCode = code;
+
+        var result = await QueryService.GetAtmListAsync(
+            _search, stateCode, onlyMissing, _currentPage, _pageSize, CancellationToken.None);
+
         _atms = result.Items;
         _totalCount = result.TotalCount;
         _loading = false;
@@ -239,6 +360,66 @@
         _currentPage = newPage;
         await LoadAtmsAsync();
         StateHasChanged();
+    }
+
+    private async Task OnFilterChangedAsync()
+    {
+        _currentPage = 1;
+        await LoadAtmsAsync();
+        StateHasChanged();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _search = string.Empty;
+        await OnFilterChangedAsync();
+    }
+
+    private async Task ClearStateAsync()
+    {
+        _stateFilter = string.Empty;
+        await OnFilterChangedAsync();
+    }
+
+    private async Task ClearAllFiltersAsync()
+    {
+        _search = string.Empty;
+        _stateFilter = string.Empty;
+        await OnFilterChangedAsync();
+    }
+
+    // شماره صفحه‌های قابل نمایش: اول، آخر، و دو صفحه اطراف صفحه فعلی
+    private IEnumerable<int> VisiblePages()
+    {
+        const int window = 2;
+        var pages = new SortedSet<int> { 1, _totalPages };
+
+        for (int i = _currentPage - window; i <= _currentPage + window; i++)
+            if (i >= 1 && i <= _totalPages)
+                pages.Add(i);
+
+        return pages;
+    }
+
+    private static bool HasLocation(AtmListItemDto atm) =>
+        !string.IsNullOrWhiteSpace(atm.BranchName) ||
+        !string.IsNullOrWhiteSpace(atm.CityName) ||
+        !string.IsNullOrWhiteSpace(atm.StateName);
+
+    private static string LocationLine(AtmListItemDto atm)
+    {
+        var parts = new[] { atm.BranchName, atm.CityName ?? atm.StateName }
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+
+        return string.Join(" · ", parts);
+    }
+
+    private void GoToDetail(Guid atmId) => Nav.NavigateTo($"/atms/{atmId}");
+
+    private void OnCardKeyDown(KeyboardEventArgs e, Guid atmId)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+            GoToDetail(atmId);
     }
 
     private async Task LoadChartsDataAsync()
@@ -266,8 +447,6 @@
 
         await JS.InvokeVoidAsync("renderDistributionChart", categories, values, colors);
     }
-
-    private void GoToDetail(Guid atmId) => Nav.NavigateTo($"/atms/{atmId}");
 
     private async Task OnSearch()
     {

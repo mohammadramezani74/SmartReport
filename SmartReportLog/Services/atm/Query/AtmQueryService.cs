@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SmartReportLog.Entity.AtmAgg;
 using SmartReportLog.Model.Atm.Queries;
+using SmartReportLog.Model.Ticket;
 using SmartReportLog.Persistance;
 using SmartReportLog.Utilities.DateTimeHalper;
 
@@ -12,22 +13,39 @@ namespace SmartReportLog.Services.atm.Query
 
         public AtmQueryService(SmartLogContext context) => _context = context;
 
-        public async Task<(List<AtmListItemDto> Items, int TotalCount)> GetAtmListAsync(string? search, int page, int pageSize, CancellationToken ct)
+        public async Task<(List<AtmListItemDto> Items, int TotalCount)> GetAtmListAsync(
+      string? search, int? stateCode, bool onlyMissingLocation,
+      int page, int pageSize, CancellationToken ct)
         {
             var query = _context.Atms.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
-                query = query.Where(a => a.SerialNumber!.Contains(search));
+            {
+                var s = search.Trim();
+                query = query.Where(a =>
+                    a.SerialNumber!.Contains(s) ||
+                    a.BranchName!.Contains(s) ||
+                    a.BranchCode!.Contains(s) ||
+                    a.CityName!.Contains(s));
+            }
 
+            if (onlyMissingLocation)
+                query = query.Where(a => a.StateCode == null);
+            else if (stateCode.HasValue)
+                query = query.Where(a => a.StateCode == stateCode.Value);
 
             int totalCount = await query.CountAsync(ct);
-
 
             var items = await query
                 .Select(a => new
                 {
                     a.Id,
                     a.SerialNumber,
+                    a.StateCode,
+                    a.StateName,
+                    a.CityName,
+                    a.BranchName,
+                    a.DeviceName,
                     LastReportEnd = a.DailyAnalyses
                         .OrderByDescending(p => p.EndDate)
                         .Select(p => (DateOnly?)p.EndDate)
@@ -37,16 +55,33 @@ namespace SmartReportLog.Services.atm.Query
                 .OrderByDescending(x => x.LastReportEnd)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(x => new AtmListItemDto(x.Id, x.SerialNumber!, x.LastReportEnd, x.TotalReportsCount))
+                .Select(x => new AtmListItemDto(
+                    x.Id, x.SerialNumber!, x.LastReportEnd, x.TotalReportsCount,
+                    x.StateCode, x.StateName, x.CityName, x.BranchName, x.DeviceName))
                 .ToListAsync(ct);
 
             return (items, totalCount);
+        }
+
+        public async Task<List<AtmStateOptionDto>> GetStateOptionsAsync(CancellationToken ct)
+        {
+            var rows = await _context.Atms.AsNoTracking()
+                .Where(a => a.StateCode != null && a.StateName != null)
+                .GroupBy(a => new { Code = a.StateCode!.Value, Name = a.StateName! })
+                .Select(g => new { g.Key.Code, g.Key.Name, Count = g.Count() })
+                .OrderBy(x => x.Name)
+                .ToListAsync(ct);
+
+            return rows
+                .Select(x => new AtmStateOptionDto(x.Code, x.Name, x.Count))
+                .ToList();
         }
         public async Task<AtmDetailDto?> GetAtmDetailAsync(Guid atmId, DateOnly? from, DateOnly? to, CancellationToken ct)
         {
             var atm = await _context.Atms
             .AsNoTracking()
             .AsSplitQuery()
+            .Include(a => a.DailyAnalyses).ThenInclude(p => p.TicketInfo)
             .Include(a => a.DailyAnalyses).ThenInclude(p => p.Cassettes)
             .Include(a => a.DailyAnalyses).ThenInclude(p => p.HardwareErrors)
             .Include(a => a.DailyAnalyses).ThenInclude(p => p.TodayErrors)
@@ -105,12 +140,14 @@ namespace SmartReportLog.Services.atm.Query
                 .OrderByDescending(e => e.Date)
                 .ThenByDescending(e => e.Count)
                 .ToList();
-
             return new AtmDetailDto(
                 atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
                 points, errors, cassettes, todayErrors,
                 latest?.CpuUsagePercent ?? 0, latest?.RamTotalGb ?? 0, latest?.RamUsedGb ?? 0, latest?.CpuTemperatureC,
-                latest?.DiskTotalGb ?? 0, latest?.DiskUsedGb ?? 0, latest?.GayaVersion ?? "-");
+                latest?.DiskTotalGb ?? 0, latest?.DiskUsedGb ?? 0, latest?.GayaVersion ?? "-",
+                BuildLocation(atm.MInvCode, atm.DeviceName, atm.StateCode, atm.StateName,
+                    atm.CityName, atm.SupervisionStateName, atm.CustomerName, atm.BranchCode, atm.BranchName),
+                BuildTicket(latest));
         }
 
         public async Task<(List<AtmPeriodListItemDto> Items, int TotalCount)> GetAtmPeriodsAsync(
@@ -129,7 +166,7 @@ namespace SmartReportLog.Services.atm.Query
                 .Select(p => new AtmPeriodListItemDto(
                     p.Id,DateTime.Parse( p.Date.ToString()).ToFarsi(), DateTime.Parse(p.EndDate.ToString()).ToFarsi(),
                     p.TotalTransactions, p.TotalCards, p.ReceiptCount,
-                    p.HardwareErrors.Sum(e => (int?)e.Count) ?? 0))
+                    p.HardwareErrors.Sum(e => (int?)e.Count) ?? 0,p.TicketNumber))
                 .ToListAsync(ct);
 
             return (items, totalCount);
@@ -139,15 +176,30 @@ namespace SmartReportLog.Services.atm.Query
             var atm = await _context.Atms
                 .AsNoTracking()
                 .Where(a => a.Id == atmId)
-                .Select(a => new { a.Id, a.SerialNumber, a.CpuModel, a.OsVersion })
+                .Select(a => new
+                {
+                    a.Id,
+                    a.SerialNumber,
+                    a.CpuModel,
+                    a.OsVersion,
+                    a.MInvCode,
+                    a.DeviceName,
+                    a.StateCode,
+                    a.StateName,
+                    a.CityName,
+                    a.SupervisionStateName,
+                    a.CustomerName,
+                    a.BranchCode,
+                    a.BranchName
+                })
                 .FirstOrDefaultAsync(ct);
-            if (atm is null) return null;
 
             var latest = await _context.Set<AtmDailyAnalysis>()
                 .AsNoTracking()
                 .Include(p => p.Cassettes)
                 .Include(p => p.HardwareErrors)
                 .Include(p => p.TodayErrors)
+                .Include(p => p.TicketInfo)
                 .FirstOrDefaultAsync(p => p.Id == periodId && p.AtmId == atmId, ct);
             if (latest is null) return null;
 
@@ -196,10 +248,13 @@ namespace SmartReportLog.Services.atm.Query
                 .ToList();
 
             return new AtmDetailDto(
-                atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
-                [points], errors, cassettes, todayErrors,
-                latest.CpuUsagePercent, latest.RamTotalGb, latest.RamUsedGb, latest.CpuTemperatureC,
-                latest.DiskTotalGb, latest.DiskUsedGb, latest.GayaVersion ?? "-");
+     atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
+     [points], errors, cassettes, todayErrors,
+     latest.CpuUsagePercent, latest.RamTotalGb, latest.RamUsedGb, latest.CpuTemperatureC,
+     latest.DiskTotalGb, latest.DiskUsedGb, latest.GayaVersion ?? "-",
+     BuildLocation(atm.MInvCode, atm.DeviceName, atm.StateCode, atm.StateName,
+         atm.CityName, atm.SupervisionStateName, atm.CustomerName, atm.BranchCode, atm.BranchName),
+     BuildTicket(latest));
         }
 
         public async Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors(CancellationToken ct)
@@ -303,5 +358,23 @@ namespace SmartReportLog.Services.atm.Query
                 _ => ($"سخت‌افزار ({deviceName})", "#64748b")             // خاکستری برای بقیه موارد پیش‌بینی نشده
             };
         }
+
+        private static AtmTicketDetailDto? BuildTicket(AtmDailyAnalysis? period)
+        {
+            if (period is null) return null;
+
+            var t = period.TicketInfo;
+            if (t is null && string.IsNullOrWhiteSpace(period.TicketNumber)) return null;
+
+            return new AtmTicketDetailDto(
+                period.TicketNumber, period.PersonnelCode,
+                t?.RequestNo, t?.CallDate, t?.ReferDate, t?.ReferEndTime,
+                t?.AssignType, t?.TechName, t?.FetchedAt);
+        }
+
+        private static AtmLocationDto BuildLocation(
+            string? mInv, string? device, int? stateCode, string? stateName,
+            string? city, string? supervision, string? customer, string? branchCode, string? branchName)
+            => new(mInv, device, stateCode, stateName, city, supervision, customer, branchCode, branchName);
     }
 }

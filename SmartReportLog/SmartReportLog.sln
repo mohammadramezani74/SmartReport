@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartReportLog", "SmartReportLog.csproj", "{8A8348F6-E578-275B-F32B-EC652B94F9DD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8A8348F6-E578-275B-F32B-EC652B94F9DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A8348F6-E578-275B-F32B-EC652B94F9DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A8348F6-E578-275B-F32B-EC652B94F9DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A8348F6-E578-275B-F32B-EC652B94F9DD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {37557CAC-FD4C-4D5B-A460-7A56F14C45D3}
+	EndGlobalSection
+EndGlobal

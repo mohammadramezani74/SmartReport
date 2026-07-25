@@ -1,0 +1,77 @@
+﻿@page "/tickettest"
+@using SmartReportLog.Model.Ticket
+@using SmartReportLog.Services.Ticket
+@inject ITicketInfoProvider TicketProvider
+@rendermode InteractiveServer
+
+<h3>تست دریافت اطلاعات تیکت</h3>
+
+<div style="direction:rtl; font-family:Tahoma; padding:16px;">
+    <input @bind="_ticketNo" placeholder="شماره تیکت" style="padding:6px;" />
+    <button @onclick="Lookup" disabled="@_busy" style="padding:6px 16px;">جستجو</button>
+
+    @if (_busy)
+    {
+        <p>در حال دریافت...</p>
+    }
+    else if (_result is not null)
+    {
+        <p><b>Success:</b> @_result.Success</p>
+        <p><b>Message:</b> @(_result.Message ?? "-")</p>
+
+        @if (_result.Data is not null)
+        {
+            var d = _result.Data;
+            <table border="1" cellpadding="6" style="border-collapse:collapse; margin-top:12px;">
+                <tr><td>RequestNo</td><td>@d.RequestNo</td></tr>
+                <tr><td>SerialNo</td><td>[@d.SerialNo]</td></tr>
+                <tr><td>MInvCode</td><td>[@d.MInvCode]</td></tr>
+                <tr><td>DeviceName</td><td>@d.DeviceName</td></tr>
+                <tr><td>StateCode</td><td>@d.StateCode</td></tr>
+                <tr><td>StateName</td><td>@d.StateName</td></tr>
+                <tr><td>CityName</td><td>@d.CityName</td></tr>
+                <tr><td>SupervisionStateName</td><td>@d.SupervisionStateName</td></tr>
+                <tr><td>CustomerName</td><td>@d.CustomerName</td></tr>
+                <tr><td>BranchCode</td><td>[@d.BranchCode]</td></tr>
+                <tr><td>BranchName</td><td>@d.BranchName</td></tr>
+                <tr><td>CallDate</td><td>@d.CallDate</td></tr>
+                <tr><td>ReferDate</td><td>@d.ReferDate</td></tr>
+                <tr><td>ReferEndTime</td><td>@d.ReferEndTime</td></tr>
+                <tr><td>AssignType</td><td>@d.AssignType</td></tr>
+                <tr><td>TechName</td><td>@d.TechName</td></tr>
+            </table>
+        }
+    }
+
+    @if (_exception is not null)
+    {
+        <pre style="background:#fdecea; padding:12px; direction:ltr; text-align:left; overflow:auto;">@_exception</pre>
+    }
+</div>
+
+@code {
+    private string _ticketNo = "2285846";
+    private bool _busy;
+    private TicketLookupResult? _result;
+    private string? _exception;
+
+    private async Task Lookup()
+    {
+        _busy = true;
+        _result = null;
+        _exception = null;
+
+        try
+        {
+            _result = await TicketProvider.GetByTicketNumberAsync(_ticketNo, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _exception = ex.ToString();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

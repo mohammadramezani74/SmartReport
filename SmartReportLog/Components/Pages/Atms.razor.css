@@ -406,3 +406,308 @@
         grid-template-columns: 1fr;
     }
 }
+/* ================================================================
+   استایل‌های جدید — به انتهای فایل Atms.razor.css اضافه شود
+   ================================================================ */
+
+/* شمارنده تعداد کل دستگاه‌ها کنار عنوان سکشن */
+.count-chip {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 30px;
+    margin-right: 2px;
+}
+
+/* گروه فیلترها در هدر سکشن */
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+    .filter-group .search-box {
+        max-width: 320px;
+        flex: 1 1 220px;
+    }
+
+/* دراپ‌داون انتخاب استان */
+.select-box {
+    position: relative;
+    flex: 0 1 220px;
+    min-width: 180px;
+}
+
+    .select-box > i:first-child {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 18px;
+        pointer-events: none;
+    }
+
+    .select-box .chevron {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 16px;
+        pointer-events: none;
+    }
+
+    .select-box select {
+        width: 100%;
+        padding: 11px 44px 11px 34px;
+        font-family: inherit;
+        font-size: 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        outline: none;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        transition: all 0.2s ease;
+    }
+
+        .select-box select:focus {
+            border-color: var(--primary);
+            background-color: var(--bg-card);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        }
+
+/* چیپ‌های فیلتر فعال */
+.active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 30px;
+    border: 1px solid var(--primary-light);
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+    .filter-chip:hover {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+    }
+
+    .filter-chip i {
+        font-size: 14px;
+    }
+
+/* دکمه ثانویه در حالت خالی */
+.ghost-btn {
+    margin-top: 14px;
+    padding: 8px 20px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+    .ghost-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+/* مدل دستگاه روی کارت */
+.atm-model {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: -10px 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: ltr;
+    text-align: right;
+}
+
+/* خط اطلاعات مکانی روی کارت */
+.atm-location {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    min-height: 20px;
+}
+
+    .atm-location i {
+        font-size: 16px;
+        color: var(--primary);
+        flex-shrink: 0;
+    }
+
+    .atm-location span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .atm-location.is-missing {
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+        .atm-location.is-missing i {
+            color: var(--text-muted);
+        }
+
+/* دسترسی با کیبورد */
+.atm-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+    .atm-card:focus-visible::before {
+        background-color: var(--primary);
+    }
+
+/* پیجینیشن: بازچینی برای نمایش خلاصه صفحه */
+.pagination-container {
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.pagination-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.page-summary {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.pagination-gap {
+    color: var(--text-muted);
+    padding: 0 2px;
+    user-select: none;
+}
+
+/* ================================================================
+   ریسپانسیو
+   ================================================================ */
+
+@media (max-width: 1024px) {
+    .filter-group {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 768px) {
+    .atm-dashboard-container {
+        padding: 16px;
+        gap: 16px;
+    }
+
+    .content-section-card {
+        padding: 18px;
+    }
+
+    .header-title h1 {
+        font-size: 22px;
+    }
+
+    .section-card-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .filter-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+        .filter-group .search-box,
+        .filter-group .select-box {
+            max-width: none;
+            flex: 1 1 auto;
+        }
+
+    .atm-grid, .skeleton-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .atm-card {
+        padding: 18px;
+    }
+
+    .chart-wrapper,
+    .chart-skeleton {
+        height: 300px;
+    }
+
+    .pagination-container {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 420px) {
+    .atm-serial {
+        font-size: 16px;
+    }
+
+    .pagination-btn {
+        min-width: 34px;
+        height: 34px;
+        font-size: 13px;
+    }
+}
+
+/* احترام به تنظیم کاهش انیمیشن سیستم */
+@media (prefers-reduced-motion: reduce) {
+    .atm-card,
+    .atm-card .arrow,
+    .pagination-btn,
+    .filter-chip {
+        transition: none;
+    }
+
+        .atm-card:hover {
+            transform: none;
+        }
+
+    .skeleton-card,
+    .chart-skeleton {
+        animation: none;
+    }
+}

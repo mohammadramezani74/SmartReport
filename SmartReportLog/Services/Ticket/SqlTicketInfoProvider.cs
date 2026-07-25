@@ -10,21 +10,21 @@ namespace SmartReportLog.Services.Ticket
         private const string Sql = @"
 SELECT TOP 1
     e.RequestNo,
-    RTRIM(e.CallDate)               AS CallDate,
-    RTRIM(e.SerialNo)               AS SerialNo,
-    RTRIM(v.MInvCode)               AS MInvCode,
-    RTRIM(v.Name)                   AS DeviceName,
-    RTRIM(v.CityName)               AS CityName,
-    RTRIM(v.SupervisionStateName)   AS SupervisionStateName,
-    v.StateCode,
-    RTRIM(v.StateName)              AS StateName,
-    RTRIM(v.CustmrName)             AS CustomerName,
-    RTRIM(v.branchname)             AS BranchName,
-    RTRIM(v.BranchCode)             AS BranchCode,
-    RTRIM(a.ReferDate)              AS ReferDate,
-    RTRIM(a.ReferEndTime)           AS ReferEndTime,
-    RTRIM(o.AssignType)             AS AssignType,
-    RTRIM(f.FullName)               AS TechName
+    CAST(e.CallDate AS varchar(8))                          AS CallDate,
+    RTRIM(e.SerialNo)                                       AS SerialNo,
+    RTRIM(v.MInvCode)                                       AS MInvCode,
+    RTRIM(v.Name)                                           AS DeviceName,
+    RTRIM(v.CityName)                                       AS CityName,
+    RTRIM(v.SupervisionStateName)                           AS SupervisionStateName,
+    CAST(v.StateCode AS int)                                AS StateCode,
+    RTRIM(v.StateName)                                      AS StateName,
+    RTRIM(v.CustmrName)                                     AS CustomerName,
+    RTRIM(v.branchname)                                     AS BranchName,
+    RTRIM(v.BranchCode)                                     AS BranchCode,
+    CAST(a.ReferDate AS varchar(8))                         AS ReferDate,
+    RIGHT('0000' + CAST(a.ReferEndTime AS varchar(4)), 4)   AS ReferEndTime,
+    RTRIM(o.AssignType)                                     AS AssignType,
+    RTRIM(f.FullName)                                       AS TechName
 FROM ErrorReport e
 LEFT OUTER JOIN V_SerialInfo v
     ON v.ID = e.Ret16Id

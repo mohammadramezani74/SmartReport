@@ -2,5 +2,6 @@
 {
     public record AtmPeriodListItemDto(
     Guid Id, string StartDate, string EndDate,
-    int TotalTransactions, int TotalCards, int ReceiptCount, int ErrorsCount);
+    int TotalTransactions, int TotalCards, int ReceiptCount, int ErrorsCount,
+    string? TicketNumber = null);
 }
