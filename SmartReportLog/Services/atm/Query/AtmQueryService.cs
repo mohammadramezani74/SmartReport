@@ -342,6 +342,30 @@ namespace SmartReportLog.Services.atm.Query
             return result;
         }
 
+        public async Task<List<StateErrorStatsDto>> GetStateErrorStatsAsync(int days, CancellationToken ct)
+        {
+            var cutoff = DateOnly.FromDateTime(DateTime.Now.AddDays(-days));
+
+            var rows = await _context.Atms.AsNoTracking()
+                .Where(a => a.StateName != null)
+                .Select(a => new
+                {
+                    a.StateCode,
+                    a.StateName,
+                    Errors = a.DailyAnalyses
+                        .Where(p => p.EndDate >= cutoff)
+                        .SelectMany(p => p.HardwareErrors)
+                        .Sum(e => (int?)e.Count) ?? 0
+                })
+                .ToListAsync(ct);
+
+            return rows
+                .GroupBy(x => new { x.StateCode, x.StateName })
+                .Select(g => new StateErrorStatsDto(
+                    g.Key.StateCode, g.Key.StateName!, g.Count(), g.Sum(x => x.Errors)))
+                .OrderByDescending(x => x.ErrorsPerAtm)
+                .ToList();
+        }
         private (string PersianName, string ColorHex) MapDeviceToPersianAndColor(string deviceName)
         {
             if (string.IsNullOrEmpty(deviceName))

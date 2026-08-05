@@ -1,0 +1,160 @@
+﻿@using SmartReportLog.Model.Atm.Queries
+@using SmartReportLog.Components.Shared
+
+<div class="map-card">
+    <div class="map-head">
+        <div class="map-title">
+            <span class="map-title-icon"><i class="ti ti-map-2"></i></span>
+            <div>
+                <span class="map-title-text">پراکندگی خطا در استان‌ها</span>
+                <span class="map-subtitle">میانگین خطای سخت‌افزاری به ازای هر دستگاه — @Days روز گذشته</span>
+            </div>
+        </div>
+
+        @if (SelectedStateCode is not null)
+        {
+            <button class="map-clear" @onclick="() => Select(null)">
+                <i class="ti ti-x"></i> حذف فیلتر استان
+            </button>
+        }
+    </div>
+
+    @if (Stats is null)
+    {
+        <div class="map-skeleton"></div>
+    }
+    else
+    {
+        <div class="map-body">
+            <div class="map-svg-wrap">
+                <svg viewBox="@IranProvinces.ViewBox" class="iran-map" role="img" aria-label="نقشه پراکندگی خطا در استان‌های ایران">
+                    @foreach (var province in IranProvinces.All)
+                    {
+                        var stat = Match(province.Name);
+                        var isSelected = stat is not null && stat.StateCode == SelectedStateCode;
+
+                        <path d="@province.Path"
+                              class="province @Bucket(stat) @(isSelected ? "selected" : "") @(stat is null ? "no-data" : "")"
+                              tabindex="@(stat is null ? -1 : 0)"
+                              @onclick="() => Select(stat?.StateCode)"
+                              @onkeydown="(e) => OnKey(e, stat?.StateCode)">
+                            <title>@Tooltip(province.Name, stat)</title>
+                        </path>
+                    }
+                </svg>
+
+                <div class="map-legend">
+                    <span class="legend-label">کمترین</span>
+                    <span class="legend-swatch lvl-0"></span>
+                    <span class="legend-swatch lvl-1"></span>
+                    <span class="legend-swatch lvl-2"></span>
+                    <span class="legend-swatch lvl-3"></span>
+                    <span class="legend-swatch lvl-4"></span>
+                    <span class="legend-label">بیشترین</span>
+                    <span class="legend-sep"></span>
+                    <span class="legend-swatch no-data"></span>
+                    <span class="legend-label">بدون دستگاه</span>
+                </div>
+            </div>
+
+            <div class="map-side">
+                <div class="side-title">بیشترین میانگین خطا</div>
+
+                @if (Ranked.Count == 0)
+                {
+                    <p class="side-empty">هنوز استانی با اطلاعات مکانی ثبت نشده است.</p>
+                    <a class="side-link" href="/ticket-sync">افزودن اطلاعات تیکت</a>
+                }
+                else
+                {
+                    <ul class="side-list">
+                        @foreach (var s in Ranked.Take(8))
+                        {
+                            <li class="side-row @(s.StateCode == SelectedStateCode ? "active" : "")"
+                                @onclick="() => Select(s.StateCode)">
+                                <span class="side-dot @Bucket(s)"></span>
+                                <span class="side-name">@s.StateName</span>
+                                <span class="side-rate">@s.ErrorsPerAtm.ToString("0.#")</span>
+                                <span class="side-atms">@s.AtmCount دستگاه</span>
+                            </li>
+                        }
+                    </ul>
+
+                    <div class="side-foot">
+                        <span>@CoveredStates استان پوشش داده شده</span>
+                        <span>@TotalAtms دستگاه</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<StateErrorStatsDto>? Stats { get; set; }
+    [Parameter] public int? SelectedStateCode { get; set; }
+    [Parameter] public EventCallback<int?> OnSelect { get; set; }
+    [Parameter] public int Days { get; set; } = 30;
+
+    private List<StateErrorStatsDto> Ranked =>
+        Stats?.Where(s => s.AtmCount > 0)
+              .OrderByDescending(s => s.ErrorsPerAtm)
+              .ThenByDescending(s => s.ErrorCount)
+              .ToList() ?? new();
+
+    private int CoveredStates => Ranked.Count;
+    private int TotalAtms => Ranked.Sum(s => s.AtmCount);
+
+    private double MaxRate => Ranked.Count == 0 ? 0 : Ranked.Max(s => s.ErrorsPerAtm);
+
+    private Task Select(int? code)
+    {
+        if (code is null && SelectedStateCode is null) return Task.CompletedTask;
+        return OnSelect.InvokeAsync(code == SelectedStateCode ? null : code);
+    }
+
+    private Task OnKey(KeyboardEventArgs e, int? code) =>
+        e.Key is "Enter" or " " ? Select(code) : Task.CompletedTask;
+
+    private StateErrorStatsDto? Match(string provinceName)
+    {
+        if (Stats is null) return null;
+        var key = Normalize(provinceName);
+        return Stats.FirstOrDefault(s => Normalize(s.StateName) == key);
+    }
+
+    private string Bucket(StateErrorStatsDto? stat)
+    {
+        if (stat is null) return "lvl-0";
+        if (MaxRate <= 0) return "lvl-1";
+
+        return (stat.ErrorsPerAtm / MaxRate) switch
+        {
+            <= 0.001 => "lvl-0",
+            <= 0.25 => "lvl-1",
+            <= 0.50 => "lvl-2",
+            <= 0.75 => "lvl-3",
+            _ => "lvl-4"
+        };
+    }
+
+    private static string Tooltip(string name, StateErrorStatsDto? stat) =>
+        stat is null
+            ? $"{name} — دستگاهی ثبت نشده"
+            : $"{name} — {stat.AtmCount} دستگاه، {stat.ErrorCount} خطا، میانگین {stat.ErrorsPerAtm:0.##}";
+
+    // یکسان‌سازی نام استان: حذف «استان»، فاصله‌ها، «و»، و تفاوت ی/ک/آ عربی و فارسی
+    private static string Normalize(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+
+        return s.Replace("استان", string.Empty)
+                .Replace('\u064A', '\u06CC')
+                .Replace('\u0643', '\u06A9')
+                .Replace('\u0622', '\u0627')
+                .Replace("\u200C", string.Empty)
+                .Replace(" ", string.Empty)
+                .Replace("و", string.Empty)
+                .Trim();
+    }
+}

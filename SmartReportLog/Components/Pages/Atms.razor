@@ -215,6 +215,10 @@
             }
         }
     </section>
+    <IranStateMap Stats="_stateStats"
+                  SelectedStateCode="@CurrentStateCode"
+                  Days="30"
+                  OnSelect="OnMapStateSelected" />
 
     @* سکشن پایینی: دو چارت در کنار هم برای آنالیز شبکه *@
     <div class="dashboard-charts-grid">
@@ -298,6 +302,16 @@
 
     private bool HasActiveFilter =>
         !string.IsNullOrWhiteSpace(_search) || !string.IsNullOrEmpty(_stateFilter);
+    private List<StateErrorStatsDto>? _stateStats;
+
+    private int? CurrentStateCode =>
+        int.TryParse(_stateFilter, out var c) ? c : null;
+
+    private async Task OnMapStateSelected(int? code)
+    {
+        _stateFilter = code?.ToString() ?? string.Empty;
+        await OnFilterChangedAsync();
+    }
 
     private string ActiveStateLabel =>
         _stateFilter == "none"
@@ -306,6 +320,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _stateStats = await QueryService.GetStateErrorStatsAsync(30, CancellationToken.None);
         await LoadSummaryDataAsync();
         await LoadStatesAsync();
         await LoadChartsDataAsync();

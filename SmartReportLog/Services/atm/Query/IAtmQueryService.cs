@@ -16,6 +16,8 @@ namespace SmartReportLog.Services.atm.Query
         Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors( CancellationToken ct);
         Task<AtmDashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken);
         Task<List<AtmErrorTypeDistributionDto>> GetErrorTypeDistributionAsync(CancellationToken cancellationToken);
+        Task<List<StateErrorStatsDto>> GetStateErrorStatsAsync(int days, CancellationToken ct);
+
     }
 }
 
