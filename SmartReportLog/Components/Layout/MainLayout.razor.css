@@ -1,72 +1,398 @@
+﻿/* ================================================================
+   پوسته صفحه
+   ================================================================ */
+
 .app-shell {
     display: flex;
     min-height: 100vh;
+    background: var(--bg-page, #f4f5f9);
 }
 
+/* چک‌باکس وضعیت — دیده نمی‌شود، فقط مبنای CSS است */
+.collapse-state {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}
+
+/* ================================================================
+   سایدبار
+   ریل بیرونی عرض را نگه می‌دارد، لایه داخلی روی محتوا باز می‌شود
+   ================================================================ */
+
 .sidebar {
-    width: 240px;
+    --rail-open: 248px;
+    --rail-closed: 78px;
+    width: var(--rail-open);
     flex-shrink: 0;
-    background: var(--bg-sidebar);
+    position: relative;
+    transition: width .24s cubic-bezier(.4, 0, .2, 1);
+}
+
+.collapse-state:checked ~ .sidebar {
+    width: var(--rail-closed);
+}
+
+.sidebar-inner {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: var(--rail-open);
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    padding: 24px 16px;
+    padding: 22px 14px;
+    direction: rtl;
+    background: #fff;
+    border-left: 1px solid #e8eaf2;
+    overflow: hidden;
+    z-index: 30;
+    transition: width .24s cubic-bezier(.4, 0, .2, 1), box-shadow .24s ease;
 }
+
+.collapse-state:checked ~ .sidebar .sidebar-inner {
+    width: var(--rail-closed);
+    padding-right: 13px;
+    padding-left: 13px;
+}
+
+    /* در حالت جمع‌شده، با نگه‌داشتن ماوس روی محتوا باز می‌شود بدون جابه‌جایی صفحه */
+    .collapse-state:checked ~ .sidebar .sidebar-inner:hover {
+        width: var(--rail-open);
+        padding-right: 14px;
+        padding-left: 14px;
+        box-shadow: 4px 0 28px -10px rgba(20, 22, 43, .22);
+    }
+
+/* ---------------- عنوان ---------------- */
 
 .sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    color: #fff;
-    font-weight: 600;
-    font-size: 15px;
-    padding: 0 8px 24px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    gap: 11px;
+    padding: 4px 6px 20px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eef0f6;
+    white-space: nowrap;
 }
 
 .brand-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    background: var(--primary);
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 11px;
+    background: linear-gradient(135deg, var(--primary, #5b5ff0), var(--primary-dark, #4245c9));
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 16px;
+    font-size: 19px;
+    box-shadow: 0 4px 10px -3px rgba(91, 95, 240, .5);
 }
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+    .brand-text strong {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.4;
+        color: var(--text-primary, #1a1c2e);
+        letter-spacing: -.2px;
+    }
+
+    .brand-text small {
+        font-size: 11px;
+        line-height: 1.4;
+        color: #9aa0b5;
+    }
+
+/* ---------------- ناوبری ---------------- */
 
 .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: 0 -4px;
+    padding: 8px 4px 0;
 }
 
-.nav-item {
+    .sidebar-nav::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .sidebar-nav::-webkit-scrollbar-thumb {
+        background: #dfe3ec;
+        border-radius: 4px;
+    }
+
+.nav-section {
+    display: block;
+    padding: 12px 12px 5px;
+    height: 26px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.nav-section-text {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #b0b5c7;
+    letter-spacing: .2px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* ================================================================
+   لینک‌های منو
+   تگ a را کامپوننت NavLink می‌سازد، نه این فایل — پس بدون ::deep
+   قوانین scoped به آن نمی‌رسند و استایل پیش‌فرض بوت‌استرپ غالب می‌شود.
+   ================================================================ */
+
+.sidebar-nav ::deep a.side-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 13px;
+    border-radius: 11px;
+    color: #5f6478;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background .16s ease, color .16s ease;
+}
+
+    .sidebar-nav ::deep a.side-link:link,
+    .sidebar-nav ::deep a.side-link:visited,
+    .sidebar-nav ::deep a.side-link:hover,
+    .sidebar-nav ::deep a.side-link:focus,
+    .sidebar-nav ::deep a.side-link:active {
+        text-decoration: none;
+    }
+
+    .sidebar-nav ::deep a.side-link i {
+        font-size: 21px;
+        flex-shrink: 0;
+        width: 24px;
+        text-align: center;
+    }
+
+.sidebar-nav ::deep .nav-text {
+    flex-shrink: 0;
+}
+
+.sidebar-nav ::deep .nav-tip {
+    display: none;
+}
+
+.sidebar-nav ::deep a.side-link:hover {
+    background: #f4f5fa;
+    color: var(--text-primary, #1a1c2e);
+}
+
+.sidebar-nav ::deep a.side-link.active {
+    background: var(--primary-light, #eceefe);
+    color: var(--primary-dark, #4245c9);
+    font-weight: 700;
+}
+
+    .sidebar-nav ::deep a.side-link.active::before {
+        content: '';
+        position: absolute;
+        right: -14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 22px;
+        border-radius: 3px 0 0 3px;
+        background: var(--primary, #5b5ff0);
+    }
+
+/* ---------------- کارت کاربر ---------------- */
+
+.sidebar-user {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
-    color: rgba(255,255,255,0.65);
-    font-size: 14px;
-    text-decoration: none;
-    transition: background 0.15s ease, color 0.15s ease;
+    margin-top: auto;
+    padding: 14px 6px 2px;
+    border-top: 1px solid #eef0f6;
+    white-space: nowrap;
 }
 
-    .nav-item i {
-        font-size: 18px;
+.su-avatar {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary, #5b5ff0), var(--primary-dark, #4245c9));
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.su-info {
+    flex: 1 0 auto;
+    width: 108px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.su-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--text-primary, #1a1c2e);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.su-role {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 2px 8px;
+    border-radius: 30px;
+    background: #f1f3f8;
+    color: #6b7089;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+    .su-role.admin {
+        background: var(--primary-light, #eceefe);
+        color: var(--primary-dark, #4245c9);
     }
 
-    .nav-item:hover {
-        background: rgba(255,255,255,0.06);
-        color: #fff;
+.su-logout-form {
+    margin: 0;
+    display: flex;
+    flex-shrink: 0;
+}
+
+.su-logout {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid #e8eaf2;
+    background: #fff;
+    color: #9aa0b5;
+    font-size: 17px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+
+    .su-logout:hover {
+        background: var(--danger-light, #fee2e2);
+        border-color: var(--danger-light, #fee2e2);
+        color: var(--danger, #ef4444);
     }
 
-    .nav-item.active {
-        background: var(--primary);
-        color: #fff;
+/* ================================================================
+   محو شدن متن‌ها در حالت جمع‌شده
+   ================================================================ */
+
+.brand-text,
+.su-info,
+.nav-section-text,
+.sidebar-nav ::deep .nav-text {
+    opacity: 1;
+    transition: opacity .16s ease .06s;
+}
+
+.collapse-state:checked ~ .sidebar .brand-text,
+.collapse-state:checked ~ .sidebar .su-info,
+.collapse-state:checked ~ .sidebar .nav-section-text,
+.collapse-state:checked ~ .sidebar .sidebar-nav ::deep .nav-text {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .1s ease;
+}
+
+.collapse-state:checked ~ .sidebar .sidebar-inner:hover .brand-text,
+.collapse-state:checked ~ .sidebar .sidebar-inner:hover .su-info,
+.collapse-state:checked ~ .sidebar .sidebar-inner:hover .nav-section-text,
+.collapse-state:checked ~ .sidebar .sidebar-inner:hover .sidebar-nav ::deep .nav-text {
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity .18s ease .12s;
+}
+
+/* ================================================================
+   دکمه شناور جمع / باز کردن
+   ================================================================ */
+
+.sidebar-toggle {
+    position: fixed;
+    top: 34px;
+    right: calc(var(--rail-open) - 14px);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid #e4e7f0;
+    background: #fff;
+    color: var(--text-secondary, #6b7089);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px -2px rgba(20, 22, 43, .18);
+    transition: right .24s cubic-bezier(.4,0,.2,1), background .16s ease, color .16s ease, transform .16s ease;
+    z-index: 45;
+    user-select: none;
+}
+
+    .sidebar-toggle i {
+        transition: transform .24s cubic-bezier(.4,0,.2,1);
     }
+
+    .sidebar-toggle:hover {
+        background: var(--primary, #5b5ff0);
+        border-color: var(--primary, #5b5ff0);
+        color: #fff;
+        transform: scale(1.1);
+    }
+
+.collapse-state:checked ~ .sidebar .sidebar-toggle {
+    right: calc(var(--rail-closed) - 14px);
+}
+
+    .collapse-state:checked ~ .sidebar .sidebar-toggle i {
+        transform: rotate(180deg);
+    }
+
+.collapse-state:focus-visible ~ .sidebar .sidebar-toggle {
+    outline: 2px solid var(--primary, #5b5ff0);
+    outline-offset: 2px;
+}
+
+/* ================================================================
+   محتوای اصلی
+   ================================================================ */
 
 .main-area {
     flex: 1;
@@ -74,14 +400,123 @@
 }
 
 .content-area {
-    max-width: 1200px;
+    max-width: 1280px;
     margin: 0 auto;
-    padding: 32px 28px;
+    padding: 28px 26px;
 }
 
 #blazor-error-ui .reload {
-    color: var(--danger);
+    color: var(--danger, #ef4444);
     font-weight: 600;
     text-decoration: underline;
     margin-right: 8px;
+}
+
+/* ================================================================
+   ریسپانسیو — در موبایل به نوار افقی چسبیده به بالای صفحه تبدیل می‌شود
+   ================================================================ */
+
+@media (max-width: 900px) {
+    .app-shell {
+        flex-direction: column;
+    }
+
+    .sidebar,
+    .collapse-state:checked ~ .sidebar {
+        width: 100%;
+        height: auto;
+    }
+
+        .sidebar-inner,
+        .collapse-state:checked ~ .sidebar .sidebar-inner,
+        .collapse-state:checked ~ .sidebar .sidebar-inner:hover {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-left: none;
+            border-bottom: 1px solid #e8eaf2;
+            box-shadow: 0 2px 10px -6px rgba(20,22,43,.2);
+        }
+
+    .sidebar-brand {
+        padding: 0;
+        margin: 0;
+        border-bottom: none;
+        flex-shrink: 0;
+    }
+
+    .brand-text {
+        display: none;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        flex: 1;
+        gap: 4px;
+        overflow-x: auto;
+        padding: 0;
+        margin: 0;
+    }
+
+    .nav-section {
+        display: none;
+    }
+
+    .sidebar-nav ::deep a.side-link {
+        padding: 9px 12px;
+        flex-shrink: 0;
+    }
+
+        .sidebar-nav ::deep a.side-link.active::before {
+            display: none;
+        }
+
+    .sidebar-nav ::deep .nav-text,
+    .collapse-state:checked ~ .sidebar .sidebar-nav ::deep .nav-text {
+        display: none;
+    }
+
+    .sidebar-user {
+        margin: 0;
+        padding: 0;
+        border-top: none;
+        flex-shrink: 0;
+    }
+
+    .su-info,
+    .collapse-state:checked ~ .sidebar .su-info {
+        display: none;
+        width: auto;
+    }
+
+    .sidebar-toggle {
+        display: none;
+    }
+
+    .content-area {
+        padding: 18px 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .sidebar-inner,
+    .su-logout,
+    .sidebar-toggle,
+    .sidebar-toggle i,
+    .brand-text,
+    .su-info,
+    .nav-section-text,
+    .sidebar-nav ::deep a.side-link,
+    .sidebar-nav ::deep .nav-text {
+        transition: none;
+    }
+
+        .sidebar-toggle:hover {
+            transform: none;
+        }
 }

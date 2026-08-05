@@ -2,34 +2,83 @@
 
 <div class="app-shell">
 
-    <AuthorizeView Roles="Admin">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="users">
-                <span class="bi" aria-hidden="true"></span> مدیریت کاربران
-            </NavLink>
-        </div>
-    </AuthorizeView>
-    <AuthorizeView>
-        <Authorized>
-            <div class="user-bar" dir="rtl">
-                <span class="user-name">
-                    <i class="ti ti-user"></i>
-                    @(context.User.FindFirst("FullName")?.Value ?? context.User.Identity?.Name)
+    @* وضعیت جمع/باز با CSS مدیریت می‌شود تا مستقل از render mode و بدون تأخیر سرور باشد *@
+    <input type="checkbox" id="sidebar-collapse" class="collapse-state" autocomplete="off" />
+
+    <aside class="sidebar">
+        <div class="sidebar-inner">
+
+            <div class="sidebar-brand">
+                <span class="brand-icon"><i class="ti ti-device-desktop-analytics"></i></span>
+                <span class="brand-text">
+                    <strong>گزارش هوشمند</strong>
+                    <small>مانیتورینگ دستگاه‌های خودپرداز</small>
+                </span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <span class="nav-section">
+                    <span class="nav-section-text">منوی اصلی</span>
                 </span>
 
-                <AuthorizeView Roles="Admin" Context="adminCtx">
-                    <span class="user-role">مدیر</span>
-                </AuthorizeView>
+                <NavLink class="nav-item" href="/atms" Match="NavLinkMatch.All">
+                    <i class="ti ti-layout-dashboard"></i>
+                    <span class="nav-text">داشبورد دستگاه‌ها</span>
+                    <span class="nav-tip">داشبورد دستگاه‌ها</span>
+                </NavLink>
 
-                <form method="post" action="/api/auth/logout">
-                    <AntiforgeryToken />
-                    <button type="submit" class="logout-btn">
-                        <i class="ti ti-logout"></i> خروج
-                    </button>
-                </form>
-            </div>
-        </Authorized>
-    </AuthorizeView>
+                <NavLink class="nav-item" href="/ticket-sync">
+                    <i class="ti ti-ticket"></i>
+                    <span class="nav-text">به‌روزرسانی تیکت</span>
+                    <span class="nav-tip">به‌روزرسانی تیکت</span>
+                </NavLink>
+
+                <AuthorizeView Roles="Admin">
+                    <span class="nav-section">
+                        <span class="nav-section-text">مدیریت</span>
+                    </span>
+
+                    <NavLink class="nav-item" href="/users">
+                        <i class="ti ti-users"></i>
+                        <span class="nav-text">مدیریت کاربران</span>
+                        <span class="nav-tip">مدیریت کاربران</span>
+                    </NavLink>
+                </AuthorizeView>
+            </nav>
+
+            <AuthorizeView>
+                <Authorized>
+                    <div class="sidebar-user">
+                        <div class="su-avatar">@InitialOf(context.User.Identity?.Name)</div>
+
+                        <div class="su-info">
+                            <span class="su-name">@DisplayName(context)</span>
+                            <AuthorizeView Roles="Admin" Context="adminCtx">
+                                <Authorized>
+                                    <span class="su-role admin">مدیر سیستم</span>
+                                </Authorized>
+                                <NotAuthorized>
+                                    <span class="su-role">کاربر عادی</span>
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        </div>
+
+                        <form method="post" action="/api/auth/logout" class="su-logout-form">
+                            <AntiforgeryToken />
+                            <button type="submit" class="su-logout" title="خروج از حساب">
+                                <i class="ti ti-logout"></i>
+                            </button>
+                        </form>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+
+        <label for="sidebar-collapse" class="sidebar-toggle" title="جمع یا باز کردن منو">
+            <i class="ti ti-chevron-left"></i>
+        </label>
+    </aside>
+
     <main class="main-area">
         <article class="content-area">
             @Body
@@ -37,8 +86,21 @@
     </main>
 </div>
 
-@* <div id="blazor-error-ui">
+<div id="blazor-error-ui">
     خطای پیش‌بینی‌نشده رخ داد.
     <a href="" class="reload">بارگذاری مجدد</a>
     <a class="dismiss">✕</a>
-</div> *@
+</div>
+
+@code {
+    private static string DisplayName(AuthenticationState state)
+    {
+        var full = state.User.FindFirst("FullName")?.Value;
+        return string.IsNullOrWhiteSpace(full)
+            ? state.User.Identity?.Name ?? "کاربر"
+            : full;
+    }
+
+    private static string InitialOf(string? name)
+        => string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+}

@@ -33,9 +33,12 @@ builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 
 builder.Services.AddIdentity<AppUser, IdentityRole>(o =>
 {
-    o.Password.RequiredLength = 8;
-    o.Password.RequireNonAlphanumeric = false;
+    o.Password.RequiredLength = 7;
+    o.Password.RequireDigit = false;
+    o.Password.RequireLowercase = false;
     o.Password.RequireUppercase = false;
+    o.Password.RequireNonAlphanumeric = false;
+
     o.User.RequireUniqueEmail = false;
     o.SignIn.RequireConfirmedAccount = false;
     o.Lockout.MaxFailedAccessAttempts = 5;
