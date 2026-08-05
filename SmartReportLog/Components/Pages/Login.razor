@@ -1,0 +1,60 @@
+﻿@page "/login"
+@attribute [AllowAnonymous]
+@layout SmartReportLog.Components.Layout.EmptyLayout
+
+<PageTitle>ورود به سامانه</PageTitle>
+
+<div class="login-wrap" dir="rtl">
+    <form class="login-card" method="post" action="/api/auth/login">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+        <div class="login-brand">
+            <span class="login-logo"><i class="ti ti-device-desktop-analytics"></i></span>
+            <h1>سامانه گزارش هوشمند</h1>
+            <p>برای ادامه وارد حساب کاربری خود شوید</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <div class="login-error">
+                <i class="ti ti-alert-circle"></i>
+                <span>@Error</span>
+            </div>
+        }
+
+        <div class="login-field">
+            <label for="userName">نام کاربری</label>
+            <input id="userName" name="userName" autocomplete="username" required />
+        </div>
+
+        <div class="login-field">
+            <label for="password">رمز عبور</label>
+            <input id="password" name="password" type="password"
+                   autocomplete="current-password" required />
+        </div>
+
+        <label class="login-remember">
+            <input type="checkbox" name="rememberMe" value="true" checked />
+            <span>مرا به به خاطر بسپار</span>
+        </label>
+
+        <button type="submit" class="login-btn">ورود</button>
+    </form>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorCode { get; set; }
+
+    private string? Error => ErrorCode switch
+    {
+        "invalid" => "نام کاربری یا رمز عبور اشتباه است.",
+        "locked" => "حساب شما به دلیل تلاش‌های ناموفق موقتاً قفل شده است. چند دقیقه دیگر تلاش کنید.",
+        "disabled" => "حساب کاربری شما غیرفعال است.",
+        _ => null
+    };
+}

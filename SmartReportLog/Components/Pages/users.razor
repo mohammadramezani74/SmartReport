@@ -1,0 +1,366 @@
+﻿@page "/users"
+@attribute [Authorize(Roles = "Admin")]
+@using SmartReportLog.Entity.Identity
+@using SmartReportLog.Model.Users
+@using SmartReportLog.Services.Users
+@inject IUserAdminService UserAdmin
+@rendermode InteractiveServer
+
+<PageTitle>مدیریت کاربران</PageTitle>
+
+<div class="users-page" dir="rtl">
+    <header class="users-header">
+        <div>
+            <h1>مدیریت کاربران</h1>
+            <p>ایجاد حساب کاربری، تعیین سطح دسترسی و مدیریت وضعیت حساب‌ها</p>
+        </div>
+        <button class="btn-primary" @onclick="OpenCreate">
+            <i class="ti ti-user-plus"></i> کاربر جدید
+        </button>
+    </header>
+
+    @if (_flash is not null)
+    {
+        <div class="flash @(_flashOk ? "ok" : "fail")">
+            <i class="ti @(_flashOk ? "ti-circle-check" : "ti-alert-circle")"></i>
+            <span>@_flash</span>
+            <button class="flash-x" @onclick="() => _flash = null"><i class="ti ti-x"></i></button>
+        </div>
+    }
+
+    <section class="users-card">
+        @if (_loading)
+        {
+            <div class="users-skeleton"></div>
+        }
+        else if (_users.Count == 0)
+        {
+            <div class="users-empty">
+                <i class="ti ti-users"></i>
+                <p>هنوز کاربری ثبت نشده است.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>کاربر</th>
+                            <th>نقش</th>
+                            <th>وضعیت</th>
+                            <th>تاریخ ایجاد</th>
+                            <th class="col-actions">عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in _users)
+                        {
+                            <tr class="@(user.IsLockedOut ? "row-locked" : "")">
+                                <td>
+                                    <span class="u-name">@(user.FullName ?? user.UserName)</span>
+                                    @if (!string.IsNullOrWhiteSpace(user.FullName))
+                                    {
+                                        <span class="u-login">@user.UserName</span>
+                                    }
+                                </td>
+
+                                <td>
+                                    <span class="role-chip @(user.Role == AppRoles.Admin ? "admin" : "viewer")">
+                                        @RoleLabel(user.Role)
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="status @(user.IsLockedOut ? "off" : "on")">
+                                        @(user.IsLockedOut ? "غیرفعال" : "فعال")
+                                    </span>
+                                </td>
+
+                                <td class="u-date">@user.CreatedAt.ToString("yyyy/MM/dd")</td>
+
+                                <td class="col-actions">
+                                    <button class="icon-btn" title="ویرایش" @onclick="() => OpenEdit(user)">
+                                        <i class="ti ti-edit"></i>
+                                    </button>
+                                    <button class="icon-btn" title="تغییر رمز" @onclick="() => OpenPassword(user)">
+                                        <i class="ti ti-key"></i>
+                                    </button>
+                                    <button class="icon-btn" title="@(user.IsLockedOut ? "فعال کردن" : "غیرفعال کردن")"
+                                            @onclick="() => ToggleLock(user)">
+                                        <i class="ti @(user.IsLockedOut ? "ti-lock-open" : "ti-lock")"></i>
+                                    </button>
+                                    <button class="icon-btn danger" title="حذف" @onclick="() => OpenDelete(user)">
+                                        <i class="ti ti-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@* ---------- مودال ایجاد / ویرایش ---------- *@
+@if (_mode is FormMode.Create or FormMode.Edit)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal" dir="rtl" @onclick:stopPropagation="true">
+            <div class="modal-head">
+                <span>@(_mode == FormMode.Create ? "افزودن کاربر جدید" : "ویرایش کاربر")</span>
+                <button class="icon-btn" @onclick="CloseModal"><i class="ti ti-x"></i></button>
+            </div>
+
+            @if (_formError is not null)
+            {
+                <div class="modal-error"><i class="ti ti-alert-circle"></i> @_formError</div>
+            }
+
+            <div class="modal-body">
+                <div class="field">
+                    <label>نام کاربری</label>
+                    <input @bind="_userName" disabled="@(_mode == FormMode.Edit)" dir="ltr" />
+                </div>
+
+                <div class="field">
+                    <label>نام و نام خانوادگی</label>
+                    <input @bind="_fullName" />
+                </div>
+
+                @if (_mode == FormMode.Create)
+                {
+                    <div class="field">
+                        <label>رمز عبور</label>
+                        <input @bind="_password" type="password" dir="ltr" />
+                        <span class="hint">حداقل ۸ کاراکتر</span>
+                    </div>
+                }
+
+                <div class="field">
+                    <label>سطح دسترسی</label>
+                    <div class="role-picker">
+                        <label class="role-option @(_role == AppRoles.Viewer ? "selected" : "")">
+                            <input type="radio" name="role" value="@AppRoles.Viewer"
+                                   checked="@(_role == AppRoles.Viewer)"
+                                   @onchange="() => _role = AppRoles.Viewer" />
+                            <span class="role-name"><i class="ti ti-eye"></i> کاربر عادی</span>
+                            <span class="role-desc">مشاهده گزارش‌ها و داشبورد</span>
+                        </label>
+
+                        <label class="role-option @(_role == AppRoles.Admin ? "selected" : "")">
+                            <input type="radio" name="role" value="@AppRoles.Admin"
+                                   checked="@(_role == AppRoles.Admin)"
+                                   @onchange="() => _role = AppRoles.Admin" />
+                            <span class="role-name"><i class="ti ti-shield-lock"></i> مدیر</span>
+                            <span class="role-desc">دسترسی کامل، شامل مدیریت کاربران</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn-ghost" @onclick="CloseModal">انصراف</button>
+                <button class="btn-primary" @onclick="Save" disabled="@_busy">
+                    @(_busy ? "در حال ذخیره..." : "ذخیره")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ---------- مودال تغییر رمز ---------- *@
+@if (_mode == FormMode.Password)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal small" dir="rtl" @onclick:stopPropagation="true">
+            <div class="modal-head">
+                <span>تغییر رمز عبور</span>
+                <button class="icon-btn" @onclick="CloseModal"><i class="ti ti-x"></i></button>
+            </div>
+
+            @if (_formError is not null)
+            {
+                <div class="modal-error"><i class="ti ti-alert-circle"></i> @_formError</div>
+            }
+
+            <div class="modal-body">
+                <p class="modal-note">رمز جدید برای <strong>@_targetName</strong> تعیین می‌شود.</p>
+                <div class="field">
+                    <label>رمز عبور جدید</label>
+                    <input @bind="_password" type="password" dir="ltr" />
+                    <span class="hint">حداقل ۸ کاراکتر</span>
+                </div>
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn-ghost" @onclick="CloseModal">انصراف</button>
+                <button class="btn-primary" @onclick="Save" disabled="@_busy">تغییر رمز</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ---------- مودال تأیید حذف ---------- *@
+@if (_mode == FormMode.Delete)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal small" dir="rtl" @onclick:stopPropagation="true">
+            <div class="modal-head">
+                <span>حذف کاربر</span>
+                <button class="icon-btn" @onclick="CloseModal"><i class="ti ti-x"></i></button>
+            </div>
+
+            @if (_formError is not null)
+            {
+                <div class="modal-error"><i class="ti ti-alert-circle"></i> @_formError</div>
+            }
+
+            <div class="modal-body">
+                <p class="modal-note">
+                    آیا از حذف <strong>@_targetName</strong> مطمئن هستید؟ این عملیات قابل بازگشت نیست.
+                </p>
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn-ghost" @onclick="CloseModal">انصراف</button>
+                <button class="btn-danger" @onclick="Save" disabled="@_busy">حذف کاربر</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum FormMode { None, Create, Edit, Password, Delete }
+
+    private List<UserListItemDto> _users = new();
+    private bool _loading = true;
+    private bool _busy;
+
+    private FormMode _mode = FormMode.None;
+    private string? _targetId;
+    private string? _targetName;
+
+    private string _userName = string.Empty;
+    private string? _fullName;
+    private string _password = string.Empty;
+    private string _role = AppRoles.Viewer;
+
+    private string? _formError;
+    private string? _flash;
+    private bool _flashOk;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _users = await UserAdmin.GetUsersAsync(CancellationToken.None);
+        _loading = false;
+    }
+
+    private static string RoleLabel(string role) =>
+        role == AppRoles.Admin ? "مدیر" : "کاربر عادی";
+
+    private void OpenCreate()
+    {
+        Reset();
+        _mode = FormMode.Create;
+    }
+
+    private void OpenEdit(UserListItemDto user)
+    {
+        Reset();
+        _mode = FormMode.Edit;
+        _targetId = user.Id;
+        _userName = user.UserName;
+        _fullName = user.FullName;
+        _role = user.Role;
+    }
+
+    private void OpenPassword(UserListItemDto user)
+    {
+        Reset();
+        _mode = FormMode.Password;
+        _targetId = user.Id;
+        _targetName = user.FullName ?? user.UserName;
+    }
+
+    private void OpenDelete(UserListItemDto user)
+    {
+        Reset();
+        _mode = FormMode.Delete;
+        _targetId = user.Id;
+        _targetName = user.FullName ?? user.UserName;
+    }
+
+    private void CloseModal()
+    {
+        _mode = FormMode.None;
+        _formError = null;
+    }
+
+    private void Reset()
+    {
+        _targetId = null;
+        _targetName = null;
+        _userName = string.Empty;
+        _fullName = null;
+        _password = string.Empty;
+        _role = AppRoles.Viewer;
+        _formError = null;
+    }
+
+    private async Task Save()
+    {
+        _busy = true;
+        _formError = null;
+
+        var result = _mode switch
+        {
+            FormMode.Create => await UserAdmin.CreateAsync(
+                _userName, _fullName, _password, _role, CancellationToken.None),
+
+            FormMode.Edit => await UserAdmin.UpdateAsync(
+                _targetId!, _fullName, _role, CancellationToken.None),
+
+            FormMode.Password => await UserAdmin.ResetPasswordAsync(
+                _targetId!, _password, CancellationToken.None),
+
+            FormMode.Delete => await UserAdmin.DeleteAsync(
+                _targetId!, CancellationToken.None),
+
+            _ => new UserActionResult(false, null)
+        };
+
+        _busy = false;
+
+        if (!result.Success)
+        {
+            _formError = result.Message;
+            return;
+        }
+
+        CloseModal();
+        Flash(true, result.Message);
+        await LoadAsync();
+    }
+
+    private async Task ToggleLock(UserListItemDto user)
+    {
+        var result = await UserAdmin.SetLockAsync(
+            user.Id, !user.IsLockedOut, CancellationToken.None);
+
+        Flash(result.Success, result.Message);
+
+        if (result.Success)
+            await LoadAsync();
+    }
+
+    private void Flash(bool ok, string? message)
+    {
+        _flashOk = ok;
+        _flash = message;
+    }
+}

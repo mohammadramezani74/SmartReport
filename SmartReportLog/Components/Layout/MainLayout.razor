@@ -1,8 +1,35 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="app-shell">
-  
 
+    <AuthorizeView Roles="Admin">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="users">
+                <span class="bi" aria-hidden="true"></span> مدیریت کاربران
+            </NavLink>
+        </div>
+    </AuthorizeView>
+    <AuthorizeView>
+        <Authorized>
+            <div class="user-bar" dir="rtl">
+                <span class="user-name">
+                    <i class="ti ti-user"></i>
+                    @(context.User.FindFirst("FullName")?.Value ?? context.User.Identity?.Name)
+                </span>
+
+                <AuthorizeView Roles="Admin" Context="adminCtx">
+                    <span class="user-role">مدیر</span>
+                </AuthorizeView>
+
+                <form method="post" action="/api/auth/logout">
+                    <AntiforgeryToken />
+                    <button type="submit" class="logout-btn">
+                        <i class="ti ti-logout"></i> خروج
+                    </button>
+                </form>
+            </div>
+        </Authorized>
+    </AuthorizeView>
     <main class="main-area">
         <article class="content-area">
             @Body

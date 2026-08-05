@@ -1,9 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SmartReportLog.Entity.AtmAgg;
+using SmartReportLog.Entity.Identity;
 
 namespace SmartReportLog.Persistance
 {
-    public class SmartLogContext : DbContext
+    public class SmartLogContext :IdentityDbContext<AppUser>
     {
         public SmartLogContext(
             DbContextOptions<SmartLogContext> options)
@@ -23,9 +25,10 @@ namespace SmartReportLog.Persistance
         public DbSet<AtmTicketInfo> AtmTicketInfos => Set<AtmTicketInfo>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(SmartLogContext).Assembly);
 
-            base.OnModelCreating(modelBuilder);
         }
     }
 }
