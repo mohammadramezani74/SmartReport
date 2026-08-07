@@ -36,7 +36,7 @@ namespace SmartReportLog.Entity.AtmAgg
         public string FileHash { get; private set; } = default!;
         public int DailyFileCount { get; private set; }
         public DateTime UploadedAt { get; private set; }
-
+        public AtmTotalDocument? Document { get; set; }
         public ICollection<AtmTotalCassette> Cassettes { get; private set; } = new List<AtmTotalCassette>();
         public ICollection<AtmTotalError> Errors { get; private set; } = new List<AtmTotalError>();
 
@@ -77,86 +77,5 @@ namespace SmartReportLog.Entity.AtmAgg
         public void AddCassette(AtmTotalCassette cassette) => Cassettes.Add(cassette);
 
         public void AddError(AtmTotalError error) => Errors.Add(error);
-    }
-
-    public sealed class AtmTotalCassette : Entity<Guid>
-    {
-        public Guid TotalReportId { get; private set; }
-        public int CassetteId { get; private set; }
-        public long Denomination { get; private set; }
-        public int InitialCount { get; private set; }
-        public int TotalPickup { get; private set; }
-        public int TotalDispense { get; private set; }
-        public int TotalReject { get; private set; }
-        public int LastKnownCount { get; private set; }
-
-        private AtmTotalCassette() { }
-
-        public static AtmTotalCassette Create(
-            Guid totalReportId, int cassetteId, long denomination, int initialCount,
-            int totalPickup, int totalDispense, int totalReject, int lastKnownCount) => new()
-            {
-                Id = Guid.NewGuid(),
-                TotalReportId = totalReportId,
-                CassetteId = cassetteId,
-                Denomination = denomination,
-                InitialCount = initialCount,
-                TotalPickup = totalPickup,
-                TotalDispense = totalDispense,
-                TotalReject = totalReject,
-                LastKnownCount = lastKnownCount,
-                CreateDate = DateTime.Now
-            };
-    }
-
-    public sealed class AtmTotalError : Entity<Guid>
-    {
-        public Guid TotalReportId { get; private set; }
-        public string Device { get; private set; } = default!;
-        public string ErrorCode { get; private set; } = default!;
-        public string? Description { get; private set; }
-        public int Count { get; private set; }
-
-        public ICollection<AtmTotalErrorDate> Dates { get; private set; } = new List<AtmTotalErrorDate>();
-
-        private AtmTotalError() { }
-
-        public static AtmTotalError Create(
-            Guid totalReportId, string device, string errorCode,
-            string? description, int count) => new()
-            {
-                Id = Guid.NewGuid(),
-                TotalReportId = totalReportId,
-                Device = device,
-                ErrorCode = errorCode,
-                Description = description,
-                Count = count,
-                CreateDate = DateTime.Now
-            };
-
-        public void AddDate(DateOnly date, int count) =>
-            Dates.Add(AtmTotalErrorDate.Create(Id, date, count));
-    }
-
-    /// <summary>
-    /// تاریخ‌های خطا به صورت تجمیع‌شده. آرایه Dates در فایل سانا تکراری است
-    /// (به ازای هر رخداد یک عضو)، اینجا به (تاریخ، تعداد) خلاصه می‌شود.
-    /// </summary>
-    public sealed class AtmTotalErrorDate : Entity<Guid>
-    {
-        public Guid TotalErrorId { get; private set; }
-        public DateOnly Date { get; private set; }
-        public int Count { get; private set; }
-
-        private AtmTotalErrorDate() { }
-
-        public static AtmTotalErrorDate Create(Guid totalErrorId, DateOnly date, int count) => new()
-        {
-            Id = Guid.NewGuid(),
-            TotalErrorId = totalErrorId,
-            Date = date,
-            Count = count,
-            CreateDate = DateTime.Now
-        };
     }
 }

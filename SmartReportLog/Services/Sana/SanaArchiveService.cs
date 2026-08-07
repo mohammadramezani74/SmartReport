@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SmartReportLog.Entity.AtmAgg;
 using SmartReportLog.Model.Sana;
 using SmartReportLog.Persistance;
+using SmartReportLog.Services.Ticket;
 
 namespace SmartReportLog.Services.Sana
 {
@@ -20,15 +21,18 @@ namespace SmartReportLog.Services.Sana
         private readonly SmartLogContext _context;
         private readonly SanaStorageOptions _options;
         private readonly ILogger<SanaArchiveService> _logger;
+        private readonly ITicketInfoProvider _ticketProvider;
 
         public SanaArchiveService(
             SmartLogContext context,
             Microsoft.Extensions.Options.IOptions<SanaStorageOptions> options,
-            ILogger<SanaArchiveService> logger)
+            ILogger<SanaArchiveService> logger,
+            ITicketInfoProvider ticketProvider)
         {
             _context = context;
             _options = options.Value;
             _logger = logger;
+            _ticketProvider = ticketProvider;
         }
 
         // ================================================================
@@ -75,22 +79,41 @@ namespace SmartReportLog.Services.Sana
                     return new TotalUploadResponse(false, "فایل ارسالی یک آرشیو زیپ معتبر نیست.");
                 }
 
-                if (parsed.Error is not null)
-                    return new TotalUploadResponse(false, parsed.Error);
+                var lookup = await _ticketProvider.GetByTicketNumberAsync(parsed.TicketNumber, ct);
+
+                if (!lookup.Success || lookup.Data is null)
+                    return new TotalUploadResponse(false,
+                        lookup.Message ?? $"تیکت {parsed.TicketNumber} در سامانه یافت نشد.");
+
+                var serial = lookup.Data.SerialNo?.Trim();
+
+                if (string.IsNullOrWhiteSpace(serial))
+                    return new TotalUploadResponse(false,
+                        $"برای تیکت {parsed.TicketNumber} سریال معتبری در سامانه ثبت نشده است.");
+
+                if (!string.IsNullOrWhiteSpace(parsed.SerialNumber)
+                    && !SerialsMatch(serial, parsed.SerialNumber))
+                {
+                    // فایل رد نمی‌شود، اما اختلاف برای پیگیری ثبت می‌شود
+                    _logger.LogWarning(
+                        "سریال فایل با سریال تیکت متفاوت است. تیکت={Ticket} ERDB='{Erdb}' فایل='{File}'",
+                        parsed.TicketNumber, serial, parsed.SerialNumber);
+                }
 
                 // ---------- دستگاه ----------
                 var atm = await _context.Atms
-                    .FirstOrDefaultAsync(a => a.SerialNumber == parsed.SerialNumber, ct);
+                    .FirstOrDefaultAsync(a => a.SerialNumber == serial, ct);
 
                 if (atm is null)
                 {
-                    atm = Atm.Create(parsed.SerialNumber!);
+                    atm = Atm.Create(serial);
                     await _context.Atms.AddAsync(atm, ct);
                     await _context.SaveChangesAsync(ct);
                 }
 
-                // ---------- جایگزینی گزارش قبلی با همان تیکت و بازه ----------
-                var existing = await _context.AtmTotalReports
+
+                    // ---------- جایگزینی گزارش قبلی با همان تیکت و بازه ----------
+                    var existing = await _context.AtmTotalReports
                     .FirstOrDefaultAsync(r => r.TicketNumber == parsed.TicketNumber
                                            && r.FirstLogDate == parsed.FirstLogDate
                                            && r.LastLogDate == parsed.LastLogDate, ct);
@@ -105,7 +128,7 @@ namespace SmartReportLog.Services.Sana
                 }
 
                 // ---------- ذخیره فایل نهایی ----------
-                var storedName = BuildStoredName(parsed.TicketNumber!, parsed.SerialNumber!, hash);
+                var storedName = BuildStoredName(parsed.TicketNumber!, serial, hash);
                 var finalPath = Path.Combine(_options.RootPath, storedName);
 
                 File.Move(tempPath, finalPath, overwrite: true);
@@ -148,7 +171,12 @@ namespace SmartReportLog.Services.Sana
 
                     report.AddError(error);
                 }
-
+                report.Document = AtmTotalDocument.Create(
+    report.Id,
+    parsed.RawTotalJson!,
+    parsed.RawInfoJson,
+    parsed.RawConfigJson,
+    parsed.RawDenominationJson);
                 _context.AtmTotalReports.Add(report);
                 await _context.SaveChangesAsync(ct);
 
@@ -175,6 +203,15 @@ namespace SmartReportLog.Services.Sana
                     try { File.Delete(tempPath); } catch { /* پاکسازی بهترین‌تلاش */ }
             }
         }
+        private static bool SerialsMatch(string? a, string? b)
+    => Canonical(a) is { Length: > 0 } x
+    && Canonical(b) is { Length: > 0 } y
+    && x == y;
+
+        private static string Canonical(string? s)
+            => string.IsNullOrWhiteSpace(s)
+                ? string.Empty
+                : new string(s.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
         // ================================================================
         // 2) لیست آرشیو با فیلتر
@@ -349,7 +386,17 @@ namespace SmartReportLog.Services.Sana
                 ticket, status, statusText, hasDaily, hasTotal,
                 CanClose: hasTotal, daily, total);
         }
+        private static string? ReadRaw(ZipArchive zip, string fileName)
+        {
+            var entry = zip.Entries.FirstOrDefault(e =>
+                string.Equals(Path.GetFileName(e.FullName), fileName, StringComparison.OrdinalIgnoreCase));
 
+            if (entry is null) return null;
+
+            using var stream = entry.Open();
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
         // ================================================================
         // استخراج محتوای زیپ
         // ================================================================
@@ -364,6 +411,10 @@ namespace SmartReportLog.Services.Sana
             public DateTime? ExportDate { get; init; }
             public SanaTotalFile? Total { get; init; }
             public int DailyFileCount { get; init; }
+            public string? RawTotalJson { get; init; }
+            public string? RawInfoJson { get; init; }
+            public string? RawConfigJson { get; init; }
+            public string? RawDenominationJson { get; init; }
         }
 
         private static ParsedArchive Parse(ZipArchive zip, string originalFileName)
@@ -400,8 +451,6 @@ namespace SmartReportLog.Services.Sana
                 config?.AtmSerial,
                 RootFolderName(zip));
 
-            if (string.IsNullOrWhiteSpace(serial))
-                return new ParsedArchive { Error = "شماره سریال دستگاه در آرشیو یافت نشد." };
 
             // بازه: info.json، در غیر این صورت از نام فایل‌های daily
             var first = ParseDate(info?.FirstLogDate) ?? (dailyDates.Count > 0 ? dailyDates.Min() : null);
@@ -422,7 +471,11 @@ namespace SmartReportLog.Services.Sana
                 LastLogDate = last.Value,
                 ExportDate = ParseDateTime(info?.ExportDate),
                 Total = total,
-                DailyFileCount = dailyDates.Count
+                DailyFileCount = dailyDates.Count,
+                RawTotalJson = ReadRaw(zip, "total.json"),
+                RawInfoJson = ReadRaw(zip, "info.json"),
+                RawConfigJson = ReadRaw(zip, "config.json"),
+                RawDenominationJson = ReadRaw(zip, "denomination.json"),
             };
         }
 

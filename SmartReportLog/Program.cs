@@ -121,6 +121,7 @@ app.UseSwaggerUI(o =>
     o.DocumentTitle = "مستندات SmartReport";
 });
 app.MapAuthEndpoints();
+app.MapSanaEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

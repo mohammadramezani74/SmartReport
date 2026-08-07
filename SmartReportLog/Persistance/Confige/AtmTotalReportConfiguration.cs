@@ -39,6 +39,10 @@ namespace SmartReportLog.Persistance.Confige
                    .WithOne()
                    .HasForeignKey(x => x.TotalReportId)
                    .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(x => x.Document)
+       .WithOne()
+       .HasForeignKey<AtmTotalDocument>(x => x.TotalReportId)
+       .OnDelete(DeleteBehavior.Cascade);
         }
     }
 
