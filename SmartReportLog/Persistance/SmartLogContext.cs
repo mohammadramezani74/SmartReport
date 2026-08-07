@@ -23,6 +23,10 @@ namespace SmartReportLog.Persistance
         public DbSet<AtmTodayError> AtmTodayErrors => Set<AtmTodayError>();
         public DbSet<JsonDocuments> jsonDocuments => Set<JsonDocuments>();
         public DbSet<AtmTicketInfo> AtmTicketInfos => Set<AtmTicketInfo>();
+        public DbSet<AtmTotalReport> AtmTotalReports => Set<AtmTotalReport>();
+        public DbSet<AtmTotalCassette> AtmTotalCassettes => Set<AtmTotalCassette>();
+        public DbSet<AtmTotalError> AtmTotalErrors => Set<AtmTotalError>();
+        public DbSet<AtmTotalErrorDate> AtmTotalErrorDates => Set<AtmTotalErrorDate>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

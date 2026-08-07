@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using SmartReportLog.Components;
 using SmartReportLog.Endpoints;
 using SmartReportLog.Entity.Identity;
@@ -7,6 +9,7 @@ using SmartReportLog.Persistance;
 using SmartReportLog.Services.atm.Command.SaveData;
 using SmartReportLog.Services.atm.Query;
 using SmartReportLog.Services.Auth;
+using SmartReportLog.Services.Sana;
 using SmartReportLog.Services.Ticket;
 using SmartReportLog.Services.Users;
 
@@ -30,7 +33,33 @@ builder.Services.AddScoped<ITicketSyncService, TicketSyncService>();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.Configure<SanaStorageOptions>(
+    builder.Configuration.GetSection(SanaStorageOptions.SectionName));
 
+builder.Services.AddScoped<ISanaArchiveService, SanaArchiveService>();
+
+builder.Services.Configure<FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 209715200; // ۲۰۰ مگابایت
+});
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(o =>
+{
+    o.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "SmartReport API",
+        Version = "v1",
+        Description = "سرویس‌های دریافت گزارش توتال از سانا و بررسی وضعیت تیکت"
+    });
+
+    o.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Name = "X-Api-Key",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Description = "کلید دسترسی سرویس. مقدار را در هدر X-Api-Key ارسال کنید."
+    });
+});
 builder.Services.AddIdentity<AppUser, IdentityRole>(o =>
 {
     o.Password.RequiredLength = 7;
@@ -84,6 +113,13 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI(o =>
+{
+    o.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartReport API v1");
+    o.RoutePrefix = "api-docs";
+    o.DocumentTitle = "مستندات SmartReport";
+});
 app.MapAuthEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
