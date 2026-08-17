@@ -757,3 +757,79 @@
         transition: none;
     }
 }
+/* تب‌های بالای صفحه جزئیات */
+.detail-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e8eaf2;
+}
+
+.dt-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 18px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .16s ease, border-color .16s ease;
+}
+
+    .dt-tab i {
+        font-size: 18px;
+    }
+
+    .dt-tab:hover {
+        color: var(--text-main);
+    }
+
+    .dt-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+
+    .dt-tab.total.active {
+        color: #0f766e;
+        border-bottom-color: #0d9488;
+    }
+
+.dt-count {
+    padding: 1px 8px;
+    border-radius: 30px;
+    background: #eef0f6;
+    color: #6b7089;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.dt-tab.active .dt-count {
+    background: #d7f2ee;
+    color: #0f766e;
+}
+
+@media (max-width: 640px) {
+    .detail-tabs {
+        gap: 0;
+    }
+
+    .dt-tab {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 8px;
+        font-size: 12.5px;
+    }
+
+        .dt-tab span:not(.dt-count) {
+            display: none;
+        }
+
+        .dt-tab i {
+            font-size: 20px;
+        }
+}

@@ -221,34 +221,31 @@
                   OnSelect="OnMapStateSelected" />
 
     @* سکشن پایینی: دو چارت در کنار هم برای آنالیز شبکه *@
-    <div class="dashboard-charts-grid">
-        @* چارت اول: ۱۰ دستگاه پر خطا *@
-        <section class="content-section-card">
-            <div class="section-card-header">
-                <div class="section-title">
-                    <i class="ti ti-alert-triangle error-icon"></i>
-                    <span>۱۰ دستگاه با بیشترین میزان خطا</span>
-                </div>
-            </div>
+    <div class="section-card-header">
+        <div class="section-title">
+            <i class="ti ti-alert-triangle error-icon"></i>
+            <span>۱۰ دستگاه با بیشترین میزان خطا</span>
+        </div>
 
-            @if (_chartLoading)
+        <div class="range-picker">
+            @foreach (var option in RangeOptions)
             {
-                <div class="chart-skeleton"></div>
+                <button class="range-btn @(_errorDays == option.Days ? "active" : "")"
+                        @onclick="() => ChangeErrorRangeAsync(option.Days)">
+                    @option.Label
+                </button>
             }
-            else if (_topErrors.Count == 0)
-            {
-                <div class="empty-state small">
-                    <i class="ti ti-mood-happy"></i>
-                    <p>هیچ خطایی برای دستگاه‌ها ثبت نشده است.</p>
-                </div>
-            }
-            else
-            {
-                <div class="chart-wrapper">
-                    <canvas id="errorChart"></canvas>
-                </div>
-            }
-        </section>
+        </div>
+    </div>
+
+    @if (!_chartLoading && _topErrors.Count > 0)
+    {
+        <div class="range-caption">
+            <i class="ti ti-calendar-event"></i>
+            <span>مجموع خطاهای ثبت‌شده از @RangeStartLabel تا امروز</span>
+        </div>
+    }
+      
 
         @* چارت دوم: تفکیک و توزیع سخت‌افزارهای خطا دار هفته اخیر *@
         <section class="content-section-card">
@@ -278,7 +275,7 @@
             }
         </section>
     </div>
-</div>
+
 
 @code {
     private List<AtmListItemDto> _atms = new();
@@ -306,6 +303,34 @@
 
     private int? CurrentStateCode =>
         int.TryParse(_stateFilter, out var c) ? c : null;
+    private int _errorDays = 30;
+
+    private record RangeOption(int Days, string Label);
+
+    private static readonly RangeOption[] RangeOptions =
+    {
+    new(7, "۷ روز"),
+    new(30, "۳۰ روز"),
+    new(90, "۳ ماه"),
+    new(365, "یک سال")
+};
+
+    private string RangeStartLabel =>
+        DateTime.Today.AddDays(-_errorDays).ToFarsi();
+
+    private async Task ChangeErrorRangeAsync(int days)
+    {
+        if (days == _errorDays) return;
+
+        _errorDays = days;
+        _topErrors = await QueryService.TopTenAtmWithMostErrors(days, CancellationToken.None);
+
+        StateHasChanged();
+        await Task.Yield();          // اجازه بده DOM به‌روز شود
+
+        if (_topErrors.Count > 0)
+            await RenderErrorChartAsync();
+    }
 
     private async Task OnMapStateSelected(int? code)
     {
@@ -440,7 +465,7 @@
     private async Task LoadChartsDataAsync()
     {
         _chartLoading = true;
-        _topErrors = await QueryService.TopTenAtmWithMostErrors(CancellationToken.None);
+        _topErrors = await QueryService.TopTenAtmWithMostErrors(_errorDays, CancellationToken.None);
         _errorDistribution = await QueryService.GetErrorTypeDistributionAsync(CancellationToken.None);
         _chartLoading = false;
     }
@@ -451,9 +476,15 @@
         var data = _topErrors.Select(x => x.ErrorCount).ToArray();
         var ids = _topErrors.Select(x => x.AtmId.ToString()).ToArray();
 
-        await JS.InvokeVoidAsync("renderErrorChart", labels, data, ids);
-    }
+        var ranges = _topErrors.Select(x =>
+            x.FirstDate is null || x.LastDate is null
+                ? "بدون داده"
+                : $"{x.ReportCount} گزارش — " +
+                  $"{x.FirstDate.Value.ToDateTime(TimeOnly.MinValue).ToFarsi()} تا " +
+                  $"{x.LastDate.Value.ToDateTime(TimeOnly.MinValue).ToFarsi()}").ToArray();
 
+        await JS.InvokeVoidAsync("renderErrorChart", labels, data, ids, ranges);
+    }
     private async Task RenderDistributionChartAsync()
     {
         var categories = _errorDistribution.Select(x => x.ErrorCategory).ToArray();

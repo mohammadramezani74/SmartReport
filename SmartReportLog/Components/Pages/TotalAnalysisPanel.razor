@@ -1,0 +1,247 @@
+﻿@using SmartReportLog.Model.Atm.Queries
+@using SmartReportLog.Utilities.DateTimeHalper
+
+<div class="total-panel" dir="rtl">
+
+    @if (Reports is null)
+    {
+        <div class="tp-skeleton"></div>
+    }
+    else if (Reports.Count == 0)
+    {
+        <div class="tp-empty">
+            <i class="ti ti-file-analytics"></i>
+            <p>برای این دستگاه هنوز تحلیل بلندمدتی دریافت نشده است.</p>
+            <small>این گزارش‌ها از طریق اپلیکیشن سانا و توسط کارشناس ارسال می‌شوند.</small>
+        </div>
+    }
+    else
+    {
+        @* انتخاب گزارش، فقط وقتی بیش از یکی باشد *@
+        @if (Reports.Count > 1)
+        {
+            <div class="tp-switcher">
+                @foreach (var r in Reports)
+                {
+                    <button class="tp-switch @(r.ReportId == Current.ReportId ? "active" : "")"
+                            @onclick="() => _selectedId = r.ReportId">
+                        <span class="sw-ticket">تیکت @r.TicketNumber</span>
+                        <span class="sw-range">@Fa(r.FirstLogDate) تا @Fa(r.LastLogDate)</span>
+                    </button>
+                }
+            </div>
+        }
+
+        @* ---------- نوار زمینه ---------- *@
+        <div class="tp-context">
+            <div class="ctx-main">
+                <span class="ctx-badge">تحلیل تجمیعی</span>
+                <span class="ctx-range">
+                    <i class="ti ti-calendar-stats"></i>
+                    @Fa(Current.FirstLogDate) تا @Fa(Current.LastLogDate)
+                    <b>(@Current.CoveredDays روز)</b>
+                </span>
+            </div>
+
+            <div class="ctx-meta">
+                <span><i class="ti ti-ticket"></i> تیکت @Current.TicketNumber</span>
+                <span><i class="ti ti-files"></i> @Current.DailyFileCount فایل روزانه</span>
+                <span><i class="ti ti-upload"></i> دریافت: @Current.UploadedAt.ToFarsi()</span>
+                <a class="ctx-download" href="@DownloadUrl" target="_blank" rel="noopener">
+                    <i class="ti ti-download"></i> دانلود آرشیو (@Mb(Current.FileSizeBytes))
+                </a>
+            </div>
+        </div>
+
+        <p class="tp-note">
+            <i class="ti ti-info-circle"></i>
+            این اعداد مجموع کل دوره هستند و با گزارش‌های دوره‌ای قابل جمع یا مقایسه نیستند.
+        </p>
+
+        @* ---------- آمار کلی ---------- *@
+        <div class="tp-stats">
+            <div class="tp-stat">
+                <span class="ts-icon cards"><i class="ti ti-credit-card"></i></span>
+                <span class="ts-value">@Current.TotalCards.ToString("N0")</span>
+                <span class="ts-label">کارت پذیرفته‌شده</span>
+            </div>
+            <div class="tp-stat">
+                <span class="ts-icon trx"><i class="ti ti-arrows-exchange"></i></span>
+                <span class="ts-value">@Current.TotalTransactions.ToString("N0")</span>
+                <span class="ts-label">تراکنش</span>
+            </div>
+            <div class="tp-stat">
+                <span class="ts-icon receipt"><i class="ti ti-receipt"></i></span>
+                <span class="ts-value">@Current.TotalReceipts.ToString("N0")</span>
+                <span class="ts-label">رسید چاپ‌شده</span>
+            </div>
+            <div class="tp-stat">
+                <span class="ts-icon dispense"><i class="ti ti-cash"></i></span>
+                <span class="ts-value">@Current.TotalDispense.ToString("N0")</span>
+                <span class="ts-label">اسکناس پرداختی</span>
+            </div>
+            <div class="tp-stat @(OverallRejectRate >= 1 ? "warn" : "")">
+                <span class="ts-icon reject"><i class="ti ti-cash-off"></i></span>
+                <span class="ts-value">@TotalPickupReject.ToString("N0")</span>
+                <span class="ts-label">اسکناس رد شده — @OverallRejectRate.ToString("0.00")%</span>
+            </div>
+        </div>
+
+        @* ---------- کاست‌ها ---------- *@
+        <section class="tp-card">
+            <div class="tp-card-head">
+                <i class="ti ti-stack-2"></i>
+                <span>عملکرد کاست‌ها</span>
+            </div>
+
+            @if (Current.Cassettes.Count == 0)
+            {
+                <p class="tp-none">اطلاعات کاستی ثبت نشده است.</p>
+            }
+            else
+            {
+                <div class="cass-list">
+                    @foreach (var c in Current.Cassettes)
+                    {
+                        <div class="cass-row @RateClass(c.RejectRate)">
+                            <div class="cass-head">
+                                <span class="cass-id">کاست @c.CassetteId</span>
+                                <span class="cass-denom">@c.Denomination.ToString("N0") ریال</span>
+                            </div>
+
+                            <div class="cass-nums">
+                                <span><em>برداشت</em> @c.TotalPickup.ToString("N0")</span>
+                                <span><em>پرداخت</em> @c.TotalDispense.ToString("N0")</span>
+                                <span><em>رد</em> @c.TotalReject.ToString("N0")</span>
+                                <span><em>موجودی آخر</em> @c.LastKnownCount.ToString("N0")</span>
+                            </div>
+
+                            <div class="cass-rate">
+                                <div class="rate-bar">
+                                    <span style="width:@BarWidth(c.RejectRate)"></span>
+                                </div>
+                                <span class="rate-text">نرخ رد @c.RejectRate.ToString("0.00")%</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        @* ---------- خطاها با روند ---------- *@
+        <section class="tp-card">
+            <div class="tp-card-head">
+                <i class="ti ti-alert-triangle warn-icon"></i>
+                <span>خطاهای ثبت‌شده در کل دوره</span>
+                <span class="head-chip">@Current.Errors.Count نوع</span>
+            </div>
+
+            @if (Current.Errors.Count == 0)
+            {
+                <p class="tp-none">خطایی در این دوره ثبت نشده است.</p>
+            }
+            else
+            {
+                <div class="err-list">
+                    @foreach (var e in Current.Errors)
+                    {
+                        <div class="err-row">
+                            <div class="err-info">
+                                <div class="err-title">
+                                    <span class="err-device">@e.Device</span>
+                                    <span class="err-code">@e.ErrorCode</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(e.Description))
+                                {
+                                    <span class="err-desc">@e.Description</span>
+                                }
+                            </div>
+
+                            <div class="err-trend">
+                                @if (e.Trend.Count >= 2)
+                                {
+                                    <svg viewBox="0 0 140 34" preserveAspectRatio="none" aria-hidden="true">
+                                        <polyline points="@Spark(e.Trend)"
+                                                  fill="none" stroke="currentColor"
+                                                  stroke-width="1.8"
+                                                  stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                    <span class="trend-span">@e.Trend.Count روز</span>
+                                }
+                                else
+                                {
+                                    <span class="trend-span">—</span>
+                                }
+                            </div>
+
+                            <div class="err-count">
+                                <span class="ec-value">@e.Count.ToString("N0")</span>
+                                <span class="ec-label">بار</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public List<AtmTotalDetailDto>? Reports { get; set; }
+
+    private Guid? _selectedId;
+
+    private AtmTotalDetailDto Current =>
+        Reports!.FirstOrDefault(r => r.ReportId == _selectedId) ?? Reports![0];
+
+    private string DownloadUrl => $"/api/sana/total/{Current.ReportId}/download";
+
+    private int TotalPickupReject => Current.Cassettes.Sum(c => c.TotalReject);
+
+    private double OverallRejectRate
+    {
+        get
+        {
+            var pickup = Current.Cassettes.Sum(c => c.TotalPickup);
+            return pickup == 0 ? 0 : (double)TotalPickupReject / pickup * 100;
+        }
+    }
+
+    private static string Fa(DateOnly d) =>
+        d.ToDateTime(TimeOnly.MinValue).ToFarsi();
+
+    private static string Mb(long bytes) =>
+        bytes < 1024 * 1024
+            ? $"{bytes / 1024.0:0.#} کیلوبایت"
+            : $"{bytes / 1024.0 / 1024.0:0.#} مگابایت";
+
+    private static string RateClass(double rate) => rate switch
+    {
+        >= 3 => "critical",
+        >= 1 => "warn",
+        _ => "ok"
+    };
+
+    private static string BarWidth(double rate) =>
+        $"{Math.Min(rate / 5 * 100, 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%";
+
+    // اسپارک‌لاین در فضای 140x34 — چپ‌به‌راست یعنی قدیمی به جدید
+    private static string Spark(List<AtmTotalErrorPointDto> trend)
+    {
+        var max = trend.Max(p => p.Count);
+        var min = trend.Min(p => p.Count);
+        var span = max - min;
+        var stepX = trend.Count > 1 ? 140.0 / (trend.Count - 1) : 0;
+
+        var pts = trend.Select((p, i) =>
+        {
+            var x = i * stepX;
+            var y = span == 0 ? 17.0 : 30.0 - (p.Count - min) / (double)span * 26.0;
+
+            return $"{x.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}," +
+                   $"{y.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}";
+        });
+
+        return string.Join(" ", pts);
+    }
+}

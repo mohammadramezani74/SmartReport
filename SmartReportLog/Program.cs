@@ -57,7 +57,12 @@ builder.Services.AddSwaggerGen(o =>
         Name = "X-Api-Key",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
-        Description = "کلید دسترسی سرویس. مقدار را در هدر X-Api-Key ارسال کنید."
+        Description = "کلید دسترسی سرویس. مقدار را در هدر X-Api-Key وارد کنید."
+    });
+
+    o.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("ApiKey", document)] = []
     });
 });
 builder.Services.AddIdentity<AppUser, IdentityRole>(o =>

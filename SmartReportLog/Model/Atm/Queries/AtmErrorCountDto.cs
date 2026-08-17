@@ -2,13 +2,11 @@
 {
     public class AtmErrorCountDto
     {
-        // شناسه دستگاه برای لینک به صفحه جزئیات
         public Guid AtmId { get; set; }
-
-        // نام/سریال دستگاه - روی محور X نمودار
-        public string SerialNumber { get; set; } = string.Empty;
-
-        // تعداد کل خطاها - ارتفاع ستون
+        public string SerialNumber { get; set; } = default!;
         public int ErrorCount { get; set; }
+        public int ReportCount { get; set; }
+        public DateOnly? FirstDate { get; set; }
+        public DateOnly? LastDate { get; set; }
     }
 }

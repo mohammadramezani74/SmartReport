@@ -43,7 +43,7 @@
 
 let errorChartInstance = null;
 
-window.renderErrorChart = (labels, data, ids) => {
+window.renderErrorChart = (labels, data, ids, ranges) => {
     const ctx = document.getElementById('errorChart');
     if (!ctx) return;
 
@@ -84,8 +84,7 @@ window.renderErrorChart = (labels, data, ids) => {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        title: (items) => `دستگاه: ${items[0].label}`,
-                        label: (item) => ` تعداد خطا: ${item.raw}`
+                        afterLabel: (ctx) => ranges ? ranges[ctx.dataIndex] : ''
                     }
                 }
             },

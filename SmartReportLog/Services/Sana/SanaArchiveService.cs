@@ -78,7 +78,8 @@ namespace SmartReportLog.Services.Sana
                 {
                     return new TotalUploadResponse(false, "فایل ارسالی یک آرشیو زیپ معتبر نیست.");
                 }
-
+                if (parsed.Error is not null)
+                    return new TotalUploadResponse(false, parsed.Error);
                 var lookup = await _ticketProvider.GetByTicketNumberAsync(parsed.TicketNumber, ct);
 
                 if (!lookup.Success || lookup.Data is null)
@@ -135,7 +136,7 @@ namespace SmartReportLog.Services.Sana
 
                 // ---------- ثبت در دیتابیس ----------
                 var report = AtmTotalReport.Create(
-                    atm.Id, parsed.SerialNumber!, parsed.TicketNumber!,
+                    atm.Id, serial, parsed.TicketNumber!,
                     parsed.FirstLogDate, parsed.LastLogDate, parsed.ExportDate,
                     parsed.Total!.TotalCards, parsed.Total.TotalTransactions,
                     parsed.Total.TotalReceipts, parsed.Total.TotalReject,

@@ -257,22 +257,33 @@ namespace SmartReportLog.Services.atm.Query
      BuildTicket(latest));
         }
 
-        public async Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors(CancellationToken ct)
+        public async Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors(
+        int days, CancellationToken ct)
         {
+            var cutoff = DateOnly.FromDateTime(DateTime.Today.AddDays(-days));
+
             return await _context.Atms
-       .AsNoTracking()
-       .Select(a => new AtmErrorCountDto
-       {
-           AtmId = a.Id,
-           SerialNumber = a.SerialNumber!,
-           ErrorCount = a.DailyAnalyses
-               .SelectMany(p => p.HardwareErrors)
-               .Sum(e => (int?)e.Count) ?? 0
-       })
-       .Where(x => x.ErrorCount > 0)
-       .OrderByDescending(x => x.ErrorCount)
-       .Take(10)
-       .ToListAsync(ct);
+                .AsNoTracking()
+                .Select(a => new AtmErrorCountDto
+                {
+                    AtmId = a.Id,
+                    SerialNumber = a.SerialNumber!,
+                    ErrorCount = a.DailyAnalyses
+                        .Where(p => p.EndDate >= cutoff)
+                        .SelectMany(p => p.HardwareErrors)
+                        .Sum(e => (int?)e.Count) ?? 0,
+                    ReportCount = a.DailyAnalyses.Count(p => p.EndDate >= cutoff),
+                    FirstDate = a.DailyAnalyses
+                        .Where(p => p.EndDate >= cutoff)
+                        .Min(p => (DateOnly?)p.Date),
+                    LastDate = a.DailyAnalyses
+                        .Where(p => p.EndDate >= cutoff)
+                        .Max(p => (DateOnly?)p.EndDate)
+                })
+                .Where(x => x.ErrorCount > 0)
+                .OrderByDescending(x => x.ErrorCount)
+                .Take(10)
+                .ToListAsync(ct);
         }
 
         public async Task<AtmDashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken)
@@ -365,6 +376,35 @@ namespace SmartReportLog.Services.atm.Query
                     g.Key.StateCode, g.Key.StateName!, g.Count(), g.Sum(x => x.Errors)))
                 .OrderByDescending(x => x.ErrorsPerAtm)
                 .ToList();
+        }
+        public async Task<List<AtmTotalDetailDto>> GetTotalReportsAsync(Guid atmId, CancellationToken ct)
+        {
+            var reports = await _context.AtmTotalReports
+                .AsNoTracking()
+                .Where(r => r.AtmId == atmId)
+                .Include(r => r.Cassettes)
+                .Include(r => r.Errors).ThenInclude(e => e.Dates)
+                .OrderByDescending(r => r.LastLogDate)
+                .ToListAsync(ct);
+
+            return reports.Select(r => new AtmTotalDetailDto(
+                r.Id, r.TicketNumber, r.SerialNumber,
+                r.FirstLogDate, r.LastLogDate, r.ExportDate, r.UploadedAt, r.BankName,
+                r.TotalCards, r.TotalTransactions, r.TotalReceipts, r.TotalReject,
+                r.TotalDispenseComputed, r.DailyFileCount, r.FileSizeBytes,
+                r.Cassettes.OrderBy(c => c.CassetteId)
+                    .Select(c => new AtmTotalCassetteDto(
+                        c.CassetteId, c.Denomination, c.InitialCount,
+                        c.TotalPickup, c.TotalDispense, c.TotalReject, c.LastKnownCount))
+                    .ToList(),
+                r.Errors.OrderByDescending(e => e.Count)
+                    .Select(e => new AtmTotalErrorDto(
+                        e.Device, e.ErrorCode, e.Description, e.Count,
+                        e.Dates.OrderBy(d => d.Date)
+                            .Select(d => new AtmTotalErrorPointDto(d.Date, d.Count))
+                            .ToList()))
+                    .ToList()
+            )).ToList();
         }
         private (string PersianName, string ColorHex) MapDeviceToPersianAndColor(string deviceName)
         {

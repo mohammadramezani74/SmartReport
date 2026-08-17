@@ -711,3 +711,60 @@
         animation: none;
     }
 }
+.range-picker {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 10px;
+    background: #f1f5f9;
+}
+
+.range-btn {
+    padding: 6px 13px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .16s ease, color .16s ease;
+}
+
+    .range-btn:hover {
+        color: var(--text-main);
+    }
+
+    .range-btn.active {
+        background: #fff;
+        color: var(--primary);
+        box-shadow: 0 1px 3px rgba(15,23,42,.1);
+    }
+
+.range-caption {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -8px 0 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+    .range-caption i {
+        font-size: 15px;
+    }
+
+@media (max-width: 600px) {
+    .range-picker {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .range-btn {
+        flex: 1;
+        padding: 7px 4px;
+        font-size: 11.5px;
+    }
+}

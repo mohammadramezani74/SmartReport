@@ -13,11 +13,12 @@ namespace SmartReportLog.Services.atm.Query
     Guid atmId, int page, int pageSize, CancellationToken ct);
         Task<AtmDetailDto?> GetAtmDetailAsync(Guid atmId, DateOnly? from, DateOnly? to, CancellationToken ct);
         Task<AtmDetailDto?> GetAtmPeriodDetailAsync(Guid atmId, Guid periodId, CancellationToken ct);
-        Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors( CancellationToken ct);
+        Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors(int days, CancellationToken ct);
         Task<AtmDashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken);
         Task<List<AtmErrorTypeDistributionDto>> GetErrorTypeDistributionAsync(CancellationToken cancellationToken);
         Task<List<StateErrorStatsDto>> GetStateErrorStatsAsync(int days, CancellationToken ct);
-
+        Task<List<AtmTotalDetailDto>> GetTotalReportsAsync(Guid atmId, CancellationToken ct);
+    
     }
 }
 

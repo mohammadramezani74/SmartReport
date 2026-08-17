@@ -5,7 +5,9 @@
 @inject IAtmQueryService QueryService
 @inject IJSRuntime JS
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using SmartReportLog.Components.Shared
 <PageTitle>جزئیات دستگاه</PageTitle>
+
 
 @if (_detail is null)
 {
@@ -46,7 +48,24 @@ else
         </div>
     </div>
 
-    <div class="detail-layout">
+    <div class="detail-tabs">
+        <button class="dt-tab @(_tab == DetailTab.Periodic ? "active" : "")"
+                @onclick="() => _tab = DetailTab.Periodic">
+            <i class="ti ti-calendar-week"></i>
+            <span>گزارش‌های دوره‌ای</span>
+        </button>
+
+        <button class="dt-tab total @(_tab == DetailTab.Total ? "active" : "")"
+                @onclick="SwitchToTotal">
+            <i class="ti ti-chart-histogram"></i>
+            <span>تحلیل بلندمدت</span>
+            @if (_totalReports is { Count: > 0 })
+            {
+                <span class="dt-count">@_totalReports.Count</span>
+            }
+        </button>
+    </div>
+    <div class="detail-layout" style="@(_tab == DetailTab.Periodic ? "" : "display:none")">
         <aside class="periods-panel">
             <div class="panel-title">گزارش‌های ثبت‌شده</div>
 
@@ -368,11 +387,26 @@ else
 
         </div>
     </div>
+       @if (_tab == DetailTab.Total)
+    {
+       <TotalAnalysisPanel Reports="_totalReports" />
+    }
 }
 
 @code {
     private List<AtmPeriodListItemDto> _periods = new();
+    private enum DetailTab { Periodic, Total }
 
+    private DetailTab _tab = DetailTab.Periodic;
+    private List<AtmTotalDetailDto>? _totalReports;
+
+    private async Task SwitchToTotal()
+    {
+        _tab = DetailTab.Total;
+
+        // بارگذاری تنبل: تا وقتی کاربر این تب را باز نکند، کوئری اجرا نمی‌شود
+        _totalReports ??= await QueryService.GetTotalReportsAsync(AtmId, CancellationToken.None);
+    }
     // ---------- کمکی‌های نمایش اطلاعات تیکت ----------
 
     private bool HasLocation =>
@@ -543,4 +577,4 @@ else
             Console.WriteLine($"JS Interop Error: {ex.Message}");
         }
     }
-}}
+}
