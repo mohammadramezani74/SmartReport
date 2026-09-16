@@ -3,6 +3,7 @@ using SmartReportLog.Entity.AtmAgg;
 using SmartReportLog.Model.Atm.Queries;
 using SmartReportLog.Model.Ticket;
 using SmartReportLog.Persistance;
+using SmartReportLog.Services.Auth;
 using SmartReportLog.Utilities.DateTimeHalper;
 
 namespace SmartReportLog.Services.atm.Query
@@ -10,15 +11,19 @@ namespace SmartReportLog.Services.atm.Query
     public sealed class AtmQueryService : IAtmQueryService
     {
         private readonly SmartLogContext _context;
+        private readonly IUserScopeService _scopeService;
 
-        public AtmQueryService(SmartLogContext context) => _context = context;
+        public AtmQueryService(SmartLogContext context, IUserScopeService scopeService)
+        {
+            _context = context;
+            _scopeService = scopeService;
+        }
 
         public async Task<(List<AtmListItemDto> Items, int TotalCount)> GetAtmListAsync(
       string? search, int? stateCode, bool onlyMissingLocation,
       int page, int pageSize, CancellationToken ct)
         {
-            var query = _context.Atms.AsNoTracking().AsQueryable();
-
+            var query = ScopedAtms().AsQueryable();
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var s = search.Trim();
@@ -65,7 +70,7 @@ namespace SmartReportLog.Services.atm.Query
 
         public async Task<List<AtmStateOptionDto>> GetStateOptionsAsync(CancellationToken ct)
         {
-            var rows = await _context.Atms.AsNoTracking()
+            var rows = await ScopedAtms()
                 .Where(a => a.StateCode != null && a.StateName != null)
                 .GroupBy(a => new { Code = a.StateCode!.Value, Name = a.StateName! })
                 .Select(g => new { g.Key.Code, g.Key.Name, Count = g.Count() })
@@ -78,6 +83,7 @@ namespace SmartReportLog.Services.atm.Query
         }
         public async Task<AtmDetailDto?> GetAtmDetailAsync(Guid atmId, DateOnly? from, DateOnly? to, CancellationToken ct)
         {
+            if (!await IsAtmInScopeAsync(atmId, ct)) return null;
             var atm = await _context.Atms
             .AsNoTracking()
             .AsSplitQuery()
@@ -153,6 +159,8 @@ namespace SmartReportLog.Services.atm.Query
         public async Task<(List<AtmPeriodListItemDto> Items, int TotalCount)> GetAtmPeriodsAsync(
          Guid atmId, int page, int pageSize, CancellationToken ct)
         {
+            if (!await IsAtmInScopeAsync(atmId, ct))
+                return (new List<AtmPeriodListItemDto>(), 0);
             var query = _context.Set<AtmDailyAnalysis>()
                 .AsNoTracking()
                 .Where(p => p.AtmId == atmId);
@@ -260,10 +268,11 @@ namespace SmartReportLog.Services.atm.Query
         public async Task<List<AtmErrorCountDto>> TopTenAtmWithMostErrors(
         int days, CancellationToken ct)
         {
+
             var cutoff = DateOnly.FromDateTime(DateTime.Today.AddDays(-days));
 
-            return await _context.Atms
-                .AsNoTracking()
+            return await ScopedAtms()
+               
                 .Select(a => new AtmErrorCountDto
                 {
                     AtmId = a.Id,
@@ -290,20 +299,21 @@ namespace SmartReportLog.Services.atm.Query
         {
             // تبدیل تاریخ امروز سیستم به DateOnly
             var today =DateTime.Today.AddDays(-7);
+            var scopedAtmIds = ScopedAtms().Select(a => a.Id);
 
-            // ۱. کل دستگاه‌های ثبت شده در سیستم
-            var totalAtms = await _context.Atms.CountAsync(cancellationToken);
+            var totalAtms = await ScopedAtms().CountAsync(cancellationToken);
 
+       
             // ۲. تعداد دستگاه‌های فعال امروز (دستگاه‌هایی که برای امروز تحلیل روزانه دارند)
             var activeAtms = await _context.DailyAnalyses
-                .Where(x => x.CreateDate >= today)
+                .Where(x => scopedAtmIds.Contains(x.AtmId) && x.CreateDate >= today)
                 .Select(x => x.AtmId)
                 .Distinct()
                 .CountAsync(cancellationToken);
 
             // ۳. مجموع تراکنش‌ها و خطاهای سخت‌افزاری امروز شبکه
             var todayStats = await _context.DailyAnalyses
-                .Where(x => x.CreateDate >= today)
+                .Where(x => scopedAtmIds.Contains(x.AtmId) && x.CreateDate >= today)
                 .Select(x => new
                 {
                     Transactions = x.TotalTransactions,
@@ -326,10 +336,11 @@ namespace SmartReportLog.Services.atm.Query
         public async Task<List<AtmErrorTypeDistributionDto>> GetErrorTypeDistributionAsync(CancellationToken cancellationToken)
         {
             var sevenDaysAgo = DateTime.Today.AddDays(-7);
-
+            var scopedAtmIds = ScopedAtms().Select(a => a.Id);
             // گروه‌بندی خطاها بر اساس ستون Device در یک هفته اخیر
             var errorData = await _context.DailyHardwareErrors
-                .Where(x => _context.DailyAnalyses.Any(da => da.CreateDate.Value.Date>= sevenDaysAgo))
+                .Where(x => _context.DailyAnalyses.Any(da =>
+               scopedAtmIds.Contains(da.AtmId) && da.CreateDate.Value.Date>= sevenDaysAgo))
                 .GroupBy(x => x.Device)
                 .Select(g => new
                 {
@@ -357,7 +368,7 @@ namespace SmartReportLog.Services.atm.Query
         {
             var cutoff = DateOnly.FromDateTime(DateTime.Now.AddDays(-days));
 
-            var rows = await _context.Atms.AsNoTracking()
+            var rows = await ScopedAtms()
                 .Where(a => a.StateName != null)
                 .Select(a => new
                 {
@@ -379,6 +390,8 @@ namespace SmartReportLog.Services.atm.Query
         }
         public async Task<List<AtmTotalDetailDto>> GetTotalReportsAsync(Guid atmId, CancellationToken ct)
         {
+            if (!await IsAtmInScopeAsync(atmId, ct))
+                return new List<AtmTotalDetailDto>();
             var reports = await _context.AtmTotalReports
                 .AsNoTracking()
                 .Where(r => r.AtmId == atmId)
@@ -440,5 +453,31 @@ namespace SmartReportLog.Services.atm.Query
             string? mInv, string? device, int? stateCode, string? stateName,
             string? city, string? supervision, string? customer, string? branchCode, string? branchName)
             => new(mInv, device, stateCode, stateName, city, supervision, customer, branchCode, branchName);
+        /// <summary>
+        /// دستگاه‌های قابل مشاهده برای کاربر جاری.
+        /// همه کوئری‌ها باید از این متد شروع شوند، نه مستقیم از _context.Atms
+        /// </summary>
+        private IQueryable<Atm> ScopedAtms()
+        {
+            var scope = _scopeService.GetScope();
+
+            var query = _context.Atms.AsNoTracking();
+
+            return scope.IsRestricted
+                ? query.Where(a => a.StateCode == scope.StateCode)
+                : query;
+        }
+
+        /// <summary>آیا دستگاه موردنظر در محدوده دسترسی کاربر جاری است؟</summary>
+        private async Task<bool> IsAtmInScopeAsync(Guid atmId, CancellationToken ct)
+        {
+            var scope = _scopeService.GetScope();
+
+            if (!scope.IsRestricted) return true;
+
+            return await _context.Atms
+                .AsNoTracking()
+                .AnyAsync(a => a.Id == atmId && a.StateCode == scope.StateCode, ct);
+        }
     }
 }

@@ -37,6 +37,8 @@ builder.Services.Configure<SanaStorageOptions>(
     builder.Configuration.GetSection(SanaStorageOptions.SectionName));
 
 builder.Services.AddScoped<ISanaArchiveService, SanaArchiveService>();
+builder.Services.Configure<SecurityStampValidatorOptions>(o =>
+    o.ValidationInterval = TimeSpan.FromMinutes(30));
 
 builder.Services.Configure<FormOptions>(o =>
 {
@@ -72,15 +74,15 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(o =>
     o.Password.RequireLowercase = false;
     o.Password.RequireUppercase = false;
     o.Password.RequireNonAlphanumeric = false;
-
     o.User.RequireUniqueEmail = false;
     o.SignIn.RequireConfirmedAccount = false;
     o.Lockout.MaxFailedAccessAttempts = 5;
     o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
 .AddEntityFrameworkStores<SmartLogContext>()
+.AddClaimsPrincipalFactory<AppUserClaimsPrincipalFactory>()   // ← این خط
 .AddDefaultTokenProviders();
-
+builder.Services.AddScoped<IUserScopeService, UserScopeService>();
 builder.Services.ConfigureApplicationCookie(o =>
 {
     o.Cookie.Name = "SmartReport.Auth";

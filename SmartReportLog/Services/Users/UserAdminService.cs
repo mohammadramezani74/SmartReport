@@ -2,17 +2,23 @@
 using Microsoft.EntityFrameworkCore;
 using SmartReportLog.Entity.Identity;
 using SmartReportLog.Model.Users;
+using SmartReportLog.Persistance;
 
 namespace SmartReportLog.Services.Users
 {
     public sealed class UserAdminService : IUserAdminService
     {
         private readonly UserManager<AppUser> _userManager;
+        private readonly SmartLogContext _context;
         private readonly IHttpContextAccessor _http;
 
-        public UserAdminService(UserManager<AppUser> userManager, IHttpContextAccessor http)
+        public UserAdminService(
+            UserManager<AppUser> userManager,
+            SmartLogContext context,
+            IHttpContextAccessor http)
         {
             _userManager = userManager;
+            _context = context;
             _http = http;
         }
 
@@ -33,19 +39,33 @@ namespace SmartReportLog.Services.Users
                 var roles = await _userManager.GetRolesAsync(user);
 
                 list.Add(new UserListItemDto(
-                    user.Id,
-                    user.UserName ?? "-",
-                    user.FullName,
-                    roles.FirstOrDefault() ?? AppRoles.Viewer,
-                    user.LockoutEnd is not null && user.LockoutEnd > DateTimeOffset.Now,
-                    user.CreatedAt));
+                                                      user.Id,
+                                                      user.UserName ?? "-",
+                                                      user.FullName,
+                                                      roles.FirstOrDefault() ?? AppRoles.Viewer,
+                                                      user.StateCode,
+                                                      user.StateName,
+                                                      user.LockoutEnd is not null && user.LockoutEnd > DateTimeOffset.Now,
+                                                      user.CreatedAt));
             }
 
             return list;
         }
+        public async Task<List<StateOptionDto>> GetStateOptionsAsync(CancellationToken ct)
+        {
+            var rows = await _context.Atms.AsNoTracking()
+                .Where(a => a.StateCode != null && a.StateName != null)
+                .GroupBy(a => new { Code = a.StateCode!.Value, Name = a.StateName! })
+                .Select(g => new { g.Key.Code, g.Key.Name, Count = g.Count() })
+                .OrderBy(x => x.Name)
+                .ToListAsync(ct);
+
+            return rows.Select(x => new StateOptionDto(x.Code, x.Name, x.Count)).ToList();
+        }
 
         public async Task<UserActionResult> CreateAsync(
-            string userName, string? fullName, string password, string role, CancellationToken ct)
+    string userName, string? fullName, string password,
+    string role, int? stateCode, CancellationToken ct)
         {
             userName = userName?.Trim() ?? string.Empty;
 
@@ -61,14 +81,24 @@ namespace SmartReportLog.Services.Users
             if (await _userManager.FindByNameAsync(userName) is not null)
                 return new(false, "این نام کاربری قبلاً ثبت شده است.");
 
+            var stateName = await ResolveStateNameAsync(stateCode, ct);
+
+            if (stateCode.HasValue && stateName is null)
+                return new(false, "استان انتخاب‌شده معتبر نیست.");
+
+            // مدیر سیستم نباید محدود به استان شود
+            if (role == AppRoles.Admin && stateCode.HasValue)
+                return new(false, "کاربر مدیر نمی‌تواند محدود به یک استان باشد.");
+
             var user = new AppUser
             {
                 UserName = userName,
                 FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
+                StateCode = stateCode,
+                StateName = stateName,
                 EmailConfirmed = true,
                 LockoutEnabled = true
             };
-
             var created = await _userManager.CreateAsync(user, password);
             if (!created.Succeeded)
                 return new(false, Describe(created));
@@ -85,7 +115,8 @@ namespace SmartReportLog.Services.Users
         }
 
         public async Task<UserActionResult> UpdateAsync(
-            string userId, string? fullName, string role, CancellationToken ct)
+            string userId, string? fullName, string role,
+            int? stateCode, CancellationToken ct)
         {
             if (!AppRoles.All.Contains(role))
                 return new(false, "نقش انتخاب‌شده معتبر نیست.");
@@ -94,14 +125,25 @@ namespace SmartReportLog.Services.Users
             if (user is null)
                 return new(false, "کاربر یافت نشد.");
 
+            if (role == AppRoles.Admin && stateCode.HasValue)
+                return new(false, "کاربر مدیر نمی‌تواند محدود به یک استان باشد.");
+
+            var stateName = await ResolveStateNameAsync(stateCode, ct);
+
+            if (stateCode.HasValue && stateName is null)
+                return new(false, "استان انتخاب‌شده معتبر نیست.");
+
             var currentRoles = await _userManager.GetRolesAsync(user);
             var currentRole = currentRoles.FirstOrDefault();
 
-            // آخرین مدیر نباید نقش خود را از دست بدهد
             if (currentRole == AppRoles.Admin && role != AppRoles.Admin && await IsLastAdmin(user.Id))
                 return new(false, "این تنها حساب مدیر سیستم است و نقش آن قابل تغییر نیست.");
 
+            bool scopeChanged = user.StateCode != stateCode;
+
             user.FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
+            user.StateCode = stateCode;
+            user.StateName = stateName;
 
             var updated = await _userManager.UpdateAsync(user);
             if (!updated.Succeeded)
@@ -117,7 +159,13 @@ namespace SmartReportLog.Services.Users
                     return new(false, Describe(assigned));
             }
 
-            return new(true, "تغییرات ذخیره شد.");
+            // با تغییر محدوده، نشست فعلی کاربر باید بازسازی شود
+            if (scopeChanged || currentRole != role)
+                await _userManager.UpdateSecurityStampAsync(user);
+
+            return new(true, scopeChanged
+                ? "تغییرات ذخیره شد. محدوده جدید تا حداکثر ۳۰ دقیقه یا با ورود مجدد کاربر اعمال می‌شود."
+                : "تغییرات ذخیره شد.");
         }
 
         public async Task<UserActionResult> ResetPasswordAsync(
@@ -200,5 +248,15 @@ namespace SmartReportLog.Services.Users
             "InvalidUserName" => "نام کاربری شامل نویسه‌های غیرمجاز است.",
             _ => error.Description
         };
+        /// <summary>نام استان را از روی کد، از میان استان‌های موجود پیدا می‌کند.</summary>
+        private async Task<string?> ResolveStateNameAsync(int? stateCode, CancellationToken ct)
+        {
+            if (!stateCode.HasValue) return null;
+
+            return await _context.Atms.AsNoTracking()
+                .Where(a => a.StateCode == stateCode.Value && a.StateName != null)
+                .Select(a => a.StateName!)
+                .FirstOrDefaultAsync(ct);
+        }
     }
 }

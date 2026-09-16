@@ -6,11 +6,16 @@ namespace SmartReportLog.Services.Users
     {
         Task<List<UserListItemDto>> GetUsersAsync(CancellationToken ct);
 
+        /// <summary>استان‌هایی که در سیستم دستگاه دارند، برای تخصیص به کاربر.</summary>
+        Task<List<StateOptionDto>> GetStateOptionsAsync(CancellationToken ct);
+
         Task<UserActionResult> CreateAsync(
-            string userName, string? fullName, string password, string role, CancellationToken ct);
+            string userName, string? fullName, string password,
+            string role, int? stateCode, CancellationToken ct);
 
         Task<UserActionResult> UpdateAsync(
-            string userId, string? fullName, string role, CancellationToken ct);
+            string userId, string? fullName, string role,
+            int? stateCode, CancellationToken ct);
 
         Task<UserActionResult> ResetPasswordAsync(
             string userId, string newPassword, CancellationToken ct);

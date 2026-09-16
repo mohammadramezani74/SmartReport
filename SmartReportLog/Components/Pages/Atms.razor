@@ -7,6 +7,8 @@
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 @inject IJSRuntime JS
+@using SmartReportLog.Services.Auth
+@inject IUserScopeService ScopeService
 
 <PageTitle>دستگاه‌های ATM</PageTitle>
 
@@ -18,7 +20,15 @@
             <p>مدیریت و مانیتورینگ وضعیت گزارش‌دهی سیستم</p>
         </div>
     </header>
-
+    @if (_scope.IsRestricted)
+    {
+        <div class="scope-banner">
+            <i class="ti ti-map-pin"></i>
+            <span>
+                شما به دستگاه‌های استان <strong>@_scope.StateName</strong> دسترسی دارید.
+            </span>
+        </div>
+    }
     @* سکشن کارت‌های آمار سریع (KPI Widgets) *@
     @if (_summary != null)
     {
@@ -60,6 +70,8 @@
             </div>
 
             <div class="filter-group">
+                @if (!_scope.IsRestricted)
+{
                 <div class="select-box">
                     <i class="ti ti-map-pin"></i>
                     <select @bind="_stateFilter" @bind:after="OnFilterChangedAsync">
@@ -72,6 +84,7 @@
                     </select>
                     <i class="ti ti-chevron-down chevron"></i>
                 </div>
+                }
 
                 <div class="search-box">
                     <i class="ti ti-search"></i>
@@ -215,10 +228,13 @@
             }
         }
     </section>
+    @if (!_scope.IsRestricted)
+{
     <IranStateMap Stats="_stateStats"
                   SelectedStateCode="@CurrentStateCode"
                   Days="30"
                   OnSelect="OnMapStateSelected" />
+}
         @* چارت اول: ۱۰ دستگاه پر خطا *@
     @* سکشن پایینی: دو چارت در کنار هم برای آنالیز شبکه *@
     <div class="dashboard-charts-grid">
@@ -367,13 +383,17 @@
             ? "بدون اطلاعات مکانی"
             : _states.FirstOrDefault(s => s.Code.ToString() == _stateFilter)?.Name ?? "استان";
 
+    private UserScope _scope = UserScope.Unrestricted;
+
     protected override async Task OnInitializedAsync()
     {
-        _stateStats = await QueryService.GetStateErrorStatsAsync(30, CancellationToken.None);
+        _scope = ScopeService.GetScope();
+
         await LoadSummaryDataAsync();
         await LoadStatesAsync();
         await LoadChartsDataAsync();
         await LoadAtmsAsync();
+        _stateStats = await QueryService.GetStateErrorStatsAsync(30, CancellationToken.None);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

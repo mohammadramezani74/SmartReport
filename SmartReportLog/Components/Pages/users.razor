@@ -48,6 +48,7 @@
                         <tr>
                             <th>کاربر</th>
                             <th>نقش</th>
+                            <th>محدوده</th>
                             <th>وضعیت</th>
                             <th>تاریخ ایجاد</th>
                             <th class="col-actions">عملیات</th>
@@ -69,6 +70,20 @@
                                     <span class="role-chip @(user.Role == AppRoles.Admin ? "admin" : "viewer")">
                                         @RoleLabel(user.Role)
                                     </span>
+                                </td>
+                                <td>
+                                    @if (user.IsStateScoped)
+                                    {
+                                        <span class="scope-chip state">
+                                            <i class="ti ti-map-pin"></i> @user.StateName
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="scope-chip all">
+                                            <i class="ti ti-world"></i> همه استان‌ها
+                                        </span>
+                                    }
                                 </td>
 
                                 <td>
@@ -158,6 +173,22 @@
                         </label>
                     </div>
                 </div>
+                @if (_role == AppRoles.Viewer)
+                {
+                    <div class="field">
+                        <label>محدوده دسترسی</label>
+                        <select @bind="_stateCode">
+                            <option value="">همه استان‌ها</option>
+                            @foreach (var s in _states)
+                            {
+                                <option value="@s.Code">@s.Name (@s.AtmCount دستگاه)</option>
+                            }
+                        </select>
+                        <span class="hint">
+                            با انتخاب یک استان، کاربر فقط دستگاه‌های همان استان را می‌بیند.
+                        </span>
+                    </div>
+                }
             </div>
 
             <div class="modal-foot">
@@ -251,7 +282,17 @@
     private string? _flash;
     private bool _flashOk;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private List<StateOptionDto> _states = new();
+    private string _stateCode = string.Empty;   // "" یعنی بدون محدودیت
+
+    private int? SelectedStateCode =>
+        int.TryParse(_stateCode, out var c) ? c : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _states = await UserAdmin.GetStateOptionsAsync(CancellationToken.None);
+    }
 
     private async Task LoadAsync()
     {
@@ -277,6 +318,7 @@
         _userName = user.UserName;
         _fullName = user.FullName;
         _role = user.Role;
+        _stateCode = user.StateCode?.ToString() ?? string.Empty;
     }
 
     private void OpenPassword(UserListItemDto user)
@@ -310,6 +352,7 @@
         _password = string.Empty;
         _role = AppRoles.Viewer;
         _formError = null;
+        _stateCode = string.Empty;
     }
 
     private async Task Save()
@@ -320,10 +363,10 @@
         var result = _mode switch
         {
             FormMode.Create => await UserAdmin.CreateAsync(
-                _userName, _fullName, _password, _role, CancellationToken.None),
+     _userName, _fullName, _password, _role, SelectedStateCode, CancellationToken.None),
 
             FormMode.Edit => await UserAdmin.UpdateAsync(
-                _targetId!, _fullName, _role, CancellationToken.None),
+                _targetId!, _fullName, _role, SelectedStateCode, CancellationToken.None),
 
             FormMode.Password => await UserAdmin.ResetPasswordAsync(
                 _targetId!, _password, CancellationToken.None),
