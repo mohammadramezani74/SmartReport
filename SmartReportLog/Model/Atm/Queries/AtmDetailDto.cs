@@ -9,7 +9,7 @@ namespace SmartReportLog.Model.Atm.Queries
      List<AtmCassetteSummaryDto> CassettesLatest,
      List<AtmTodayErrorDto> TodayErrors,
      int CpuUsagePercent, int RamTotalGb, int RamUsedGb, int? CpuTemperatureC,
-     int DiskTotalGb, int DiskUsedGb, string gayaversion,
+     int DiskTotalGb, int DiskUsedGb, string gayaversion, string ImageVersion,
       AtmLocationDto? Location = null,
  AtmTicketDetailDto? Ticket = null);
 }

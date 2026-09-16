@@ -44,6 +44,7 @@ namespace SmartReportLog.Persistance.Confige
     .WithOne()
     .HasForeignKey<AtmTicketInfo>(x => x.DailyAnalysisId)
     .OnDelete(DeleteBehavior.Cascade);
+            builder.Property(x => x.ImageVersion).HasMaxLength(250);
         }
     }
 }

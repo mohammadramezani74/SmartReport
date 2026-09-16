@@ -41,7 +41,7 @@ namespace SmartReportLog.Entity.AtmAgg
           IEnumerable<(string Device, string ErrorCode, int Count)> errors,
           IEnumerable<(string Device, string ErrorCode, int Count, DateOnly Date)> todayErrors,
           int cpuUsagePercent, int ramTotalGb, int ramUsedGb, int? cpuTemperatureC,
-          int diskTotalGb, int diskUsedGb, string? ver,
+          int diskTotalGb, int diskUsedGb, string? ver,string? imageversion,
     string? ticketNumber, string? personnelCode)
         {
             var existing = DailyAnalyses.FirstOrDefault(d => d.Date == date && d.EndDate == endDate);
@@ -50,12 +50,12 @@ namespace SmartReportLog.Entity.AtmAgg
                 existing.Update(totalCards, totalTransactions, receiptCount, auiSeconds,
                     dispenseTotal, rejectTotal, cassettes, errors, todayErrors
                     , cpuUsagePercent, ramTotalGb, ramUsedGb, cpuTemperatureC,
-                    diskTotalGb, diskUsedGb, ver, ticketNumber, personnelCode);
+                    diskTotalGb, diskUsedGb, ver,imageversion, ticketNumber, personnelCode);
                 return existing;
             }
             var analysis = AtmDailyAnalysis.Create(Id, date, endDate, totalCards, totalTransactions,
                 receiptCount, auiSeconds, dispenseTotal, rejectTotal, cassettes, errors, todayErrors,
-                cpuUsagePercent, ramTotalGb, ramUsedGb, cpuTemperatureC, diskTotalGb, diskUsedGb, ver, ticketNumber, personnelCode);
+                cpuUsagePercent, ramTotalGb, ramUsedGb, cpuTemperatureC, diskTotalGb, diskUsedGb, ver,imageversion, ticketNumber, personnelCode);
             DailyAnalyses.Add(analysis);
             return analysis;
         }

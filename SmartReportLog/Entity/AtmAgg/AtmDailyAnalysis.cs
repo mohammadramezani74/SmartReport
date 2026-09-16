@@ -36,6 +36,7 @@ namespace SmartReportLog.Entity.AtmAgg
         public int DiskTotalGb { get;  set; }
         public int DiskUsedGb { get;  set; }
         public string? GayaVersion { get; set; }
+        public string? ImageVersion { get; set; }
         private AtmDailyAnalysis() { }
 
         public static AtmDailyAnalysis Create(
@@ -45,7 +46,7 @@ namespace SmartReportLog.Entity.AtmAgg
             IEnumerable<(string Device, string ErrorCode, int Count)> errors,
               IEnumerable<(string Device, string ErrorCode, int Count, DateOnly Date)> todayErrors,
              int cpuUsagePercent, int ramTotalGb, int ramUsedGb, int? cpuTemperatureC,
-        int diskTotalGb, int diskUsedGb, string?ver,
+        int diskTotalGb, int diskUsedGb, string?ver, string? imageVersion,
     string? ticketNumber, string? personnelCode
             )
         {
@@ -59,7 +60,7 @@ namespace SmartReportLog.Entity.AtmAgg
             };
             analysis.Update(totalCards, totalTransactions, receiptCount, auiSeconds,
                 dispenseTotal, rejectTotal, cassettes, errors, todayErrors, cpuUsagePercent,
-                ramTotalGb, ramUsedGb, cpuTemperatureC, diskTotalGb, diskUsedGb,ver, ticketNumber, personnelCode);
+                ramTotalGb, ramUsedGb, cpuTemperatureC, diskTotalGb, diskUsedGb,ver,imageVersion, ticketNumber, personnelCode);
             return analysis;
         }
 
@@ -69,7 +70,7 @@ namespace SmartReportLog.Entity.AtmAgg
             IEnumerable<(string Device, string ErrorCode, int Count)> errors,
             IEnumerable<(string Device, string ErrorCode, int Count, DateOnly Date)> todayErrors,
              int cpuUsagePercent, int ramTotalGb, int ramUsedGb, int? cpuTemperatureC,
-        int diskTotalGb, int diskUsedGb,string? ver,
+        int diskTotalGb, int diskUsedGb,string? ver, string? imageVersion,
     string? ticketNumber, string? personnelCode)
         {
             TotalCards = totalCards;
@@ -86,8 +87,10 @@ namespace SmartReportLog.Entity.AtmAgg
             DiskTotalGb = diskTotalGb;
             DiskUsedGb = diskUsedGb;
             GayaVersion = ver;
+            ImageVersion = imageVersion;
             TicketNumber = ticketNumber;
             PersonnelCode = personnelCode;
+         
 
             foreach (var c in cassettes)
                 Cassettes.Add(AtmCassetteDaily.Create(Id, c.Id, c.Denomination, c.Pickup, c.Dispense, c.Reject, c.LastKnown));

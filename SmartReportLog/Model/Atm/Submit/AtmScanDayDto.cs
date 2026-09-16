@@ -19,6 +19,7 @@
         public string? Cm { get; set; }   // CpuModel
         public string? Os { get; set; }   // WindowsVersion
         public string? Ver { get; set; } //version gaya
+        public string? Iv { get; set; }   // ImageVersion
         public int Cu { get; set; }       // CpuUsagePercent
         public int Rt { get; set; }       // RamTotalGb
         public int Ru { get; set; }       // RamUsedGb

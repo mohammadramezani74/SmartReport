@@ -90,6 +90,7 @@ namespace SmartReportLog.Services.atm.Command.SaveData
                 existingReport.DiskTotalGb = report.Dst;
                 existingReport.DiskUsedGb = report.Du;
                 existingReport.GayaVersion = report.Ver;
+                existingReport.ImageVersion = report.Iv;
                 existingReport.TicketNumber = report.Tk;
                 existingReport.PersonnelCode = report.Pc;
 
@@ -127,7 +128,7 @@ namespace SmartReportLog.Services.atm.Command.SaveData
                     report.Cs.Select(c => (c.I, c.Dn, c.Pk, c.Dp, c.Rj, c.Lk)),
                     report.Er.Select(e => (e.D, e.E, e.C)),
                     parsedTodayErrors,
-                    report.Cu, report.Rt, report.Ru, cpuTemp, report.Dst, report.Du, report.Ver,
+                    report.Cu, report.Rt, report.Ru, cpuTemp, report.Dst, report.Du, report.Ver, report.Iv,
                     report.Tk, report.Pc);
 
                 _context.DailyAnalyses.Add(analysis);

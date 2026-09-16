@@ -219,33 +219,56 @@
                   SelectedStateCode="@CurrentStateCode"
                   Days="30"
                   OnSelect="OnMapStateSelected" />
-
+        @* چارت اول: ۱۰ دستگاه پر خطا *@
     @* سکشن پایینی: دو چارت در کنار هم برای آنالیز شبکه *@
-    <div class="section-card-header">
-        <div class="section-title">
-            <i class="ti ti-alert-triangle error-icon"></i>
-            <span>۱۰ دستگاه با بیشترین میزان خطا</span>
-        </div>
+    <div class="dashboard-charts-grid">
 
-        <div class="range-picker">
-            @foreach (var option in RangeOptions)
+        @* چارت اول: ۱۰ دستگاه پر خطا *@
+        <section class="content-section-card">
+            <div class="section-card-header">
+                <div class="section-title">
+                    <i class="ti ti-alert-triangle error-icon"></i>
+                    <span>۱۰ دستگاه با بیشترین میزان خطا</span>
+                </div>
+
+                <div class="range-picker">
+                    @foreach (var option in RangeOptions)
+                    {
+                        <button class="range-btn @(_errorDays == option.Days ? "active" : "")"
+                                @onclick="() => ChangeErrorRangeAsync(option.Days)">
+                            @option.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (!_chartLoading && _topErrors.Count > 0)
             {
-                <button class="range-btn @(_errorDays == option.Days ? "active" : "")"
-                        @onclick="() => ChangeErrorRangeAsync(option.Days)">
-                    @option.Label
-                </button>
+                <div class="range-caption">
+                    <i class="ti ti-calendar-event"></i>
+                    <span>مجموع خطاهای ثبت‌شده از @RangeStartLabel تا امروز</span>
+                </div>
             }
-        </div>
-    </div>
 
-    @if (!_chartLoading && _topErrors.Count > 0)
-    {
-        <div class="range-caption">
-            <i class="ti ti-calendar-event"></i>
-            <span>مجموع خطاهای ثبت‌شده از @RangeStartLabel تا امروز</span>
-        </div>
-    }
-      
+            @if (_chartLoading)
+            {
+                <div class="chart-skeleton"></div>
+            }
+            else if (_topErrors.Count == 0)
+            {
+                <div class="empty-state small">
+                    <i class="ti ti-mood-happy"></i>
+                    <p>در این بازه خطایی برای دستگاه‌ها ثبت نشده است.</p>
+                </div>
+            }
+            else
+            {
+                <div class="chart-wrapper">
+                    <canvas id="errorChart"></canvas>
+                </div>
+            }
+        </section>
+       
 
         @* چارت دوم: تفکیک و توزیع سخت‌افزارهای خطا دار هفته اخیر *@
         <section class="content-section-card">
@@ -274,6 +297,7 @@
                 </div>
             }
         </section>
+    </div>
     </div>
 
 

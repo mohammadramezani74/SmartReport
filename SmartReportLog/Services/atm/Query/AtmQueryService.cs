@@ -144,7 +144,7 @@ namespace SmartReportLog.Services.atm.Query
                 atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
                 points, errors, cassettes, todayErrors,
                 latest?.CpuUsagePercent ?? 0, latest?.RamTotalGb ?? 0, latest?.RamUsedGb ?? 0, latest?.CpuTemperatureC,
-                latest?.DiskTotalGb ?? 0, latest?.DiskUsedGb ?? 0, latest?.GayaVersion ?? "-",
+                latest?.DiskTotalGb ?? 0, latest?.DiskUsedGb ?? 0, latest?.GayaVersion ?? "-", latest?.ImageVersion ?? "-",
                 BuildLocation(atm.MInvCode, atm.DeviceName, atm.StateCode, atm.StateName,
                     atm.CityName, atm.SupervisionStateName, atm.CustomerName, atm.BranchCode, atm.BranchName),
                 BuildTicket(latest));
@@ -251,7 +251,7 @@ namespace SmartReportLog.Services.atm.Query
      atm.Id, atm.SerialNumber!, atm.CpuModel, atm.OsVersion,
      [points], errors, cassettes, todayErrors,
      latest.CpuUsagePercent, latest.RamTotalGb, latest.RamUsedGb, latest.CpuTemperatureC,
-     latest.DiskTotalGb, latest.DiskUsedGb, latest.GayaVersion ?? "-",
+     latest.DiskTotalGb, latest.DiskUsedGb, latest.GayaVersion ?? "-", latest?.ImageVersion ?? "-",
      BuildLocation(atm.MInvCode, atm.DeviceName, atm.StateCode, atm.StateName,
          atm.CityName, atm.SupervisionStateName, atm.CustomerName, atm.BranchCode, atm.BranchName),
      BuildTicket(latest));
